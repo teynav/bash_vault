@@ -97,6 +97,8 @@ In case of error/success Strings are updated and are shown here
     ```
 ## Demonstration 
 
+Right-Click on these gif and click "Open Image in New tab" to view them properly
+
 1. Creating a new vault , and you can see force exit will close all mounts ( and so will rebooting your system)
 
 ![Video](./source/create_vault_and_foce_close.gif)
