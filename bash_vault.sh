@@ -26,13 +26,13 @@ function close {
     if [[ ! -d $PIPE ]];then 
         exit 0
     fi 
-    cd $PIPE 
+    cd "$PIPE" 
     for pipes in *.img
     do
-        echo "close" > $pipes 
+        echo "close" > "$pipes" 
     done 
     cd ..
-    rm -rf $PIPE 
+    rm -rf "$PIPE"
     exit 0
 }
 function dorightthing {
