@@ -196,17 +196,42 @@ function createvault {
     function display {
         echo "Please select what you want to open"
         A_VAULT=""
+        ERROR_V=""
+        WELCOME_E=""
         for elem in *.img 
-        do 
-            if [[ "$A_VAULT" == "" ]];then 
-                A_VAULT=$elem
-            else 
-                A_VAULT="$A_VAULT|$elem"
-            fi 
+        do
+            if [[ "$elem" != "*.img" ]]; then
+                tem_element=$elem
+                tem_element=$(echo $tem_element | sed 's/ /a/g')
+                if ! [[ $tem_element =~ ^[0-9a-zA-Z._-]+$ ]]; then
+                    if [[ "$WELCOME_E" == "" ]];then 
+                        WELCOME_E=$elem
+                    else 
+                        WELCOME_E="$A_VAULT, $elem"
+                    fi 
+                else
+                    if [[ "$A_VAULT" == "" ]];then 
+                        A_VAULT=$elem
+                    else 
+                        A_VAULT="$A_VAULT|$elem"
+                    fi 
+                fi 
+            fi
         done
-        if [[ "$A_VAULT" == "*.img" ]];then
-            zenity --title="Vaults" --question --text="No Vault Found, Create One?"
-            result=$?
+
+        if [[ "$WELCOME_E" != "" ]];then
+            Welcome="$WELCOME_E have bad name"
+        fi 
+        if [[ "$A_VAULT" == "" ]];then
+            result=""
+            if [[ "$WELCOME_E" == "" ]];then
+                zenity --title="Vaults" --question --text="No Vault Found, Create One?"
+                result=$?
+            else 
+                zenity --title="Vaults" --question --text="$WELCOME_E have bad name\nCheck \"$FOLDER\"\nNo Other Vault Found\nCreate Another Vault?"
+                result=$?
+            fi 
+
             if [[ "$result" == "0" ]];then 
                 createvault
             else 
