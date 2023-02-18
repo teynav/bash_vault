@@ -194,6 +194,7 @@ function createvault {
             fi 
             closethis
         fi 
+        chown  $USER_I:$USER_I "$FOLDER/$MOUNT_FOLDER_NAME"
         (sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null) & disown
         if [ -p "$M_PIPE" ];then
             if [[ "$MOTHER_RAN_ME" == "1" ]];then 
