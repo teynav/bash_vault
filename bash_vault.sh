@@ -77,7 +77,7 @@ function closethis {
 function createvault {
     d_input=$(zenity --title="Vaults" --forms --add-entry="Name Of Vault: " --text="Create your vault" --add-password="Password of Vault" --add-combo="Size(Default: 1024M)" --combo-values="1024M|2048M|5G|10G|20G")
     SAVEIFS=$IFS && IFS=$'|' && d_input=($d_input) ; IFS=$SAVEIFS
-    nameofvault="$(echo ${d_input[0]} | xargs )"
+    nameofvault="$(echo ${d_input[0]} | xargs | sed 's/\.img//g' )"
     tempname=$nameofvault
     nameofvault=$(echo $nameofvault | sed 's/ /-/g')
     pass="$(echo ${d_input[1]} | xargs )"
