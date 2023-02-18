@@ -78,6 +78,8 @@ function createvault {
     d_input=$(zenity --title="Vaults" --forms --add-entry="Name Of Vault: " --text="Create your vault" --add-password="Password of Vault" --add-combo="Size(Default: 1024M)" --combo-values="1024M|2048M|5G|10G|20G")
     SAVEIFS=$IFS && IFS=$'|' && d_input=($d_input) ; IFS=$SAVEIFS
     nameofvault="$(echo ${d_input[0]} | xargs )"
+    tempname=$nameofvault
+    nameofvault=$(echo $nameofvault | sed 's/ /-/g')
     pass="$(echo ${d_input[1]} | xargs )"
     size="$(echo ${d_input[2]} | xargs )"
     if [[ "$size" == "" ]];then 
@@ -91,11 +93,15 @@ function createvault {
         Welcome="You forgot to put Name of Vault"
         DONT_CHANGE_WELCOME=1
         zenity --title="Vaults" --info --text="Incomplete info was given, no vault name was given" --title="Error"
-    elif [ -f "$FOLDER/$nameofvault.img" ];then 
+    elif [ -f "$FOLDER/$tempname.img" ];then 
         zenity --title="Vaults" --info --text="Vault Already Exists" --title="Error"
         Welcome="Try with different vault name !!"
         DONT_CHANGE_WELCOME=1
+    elif ! [[ $nameofvault =~ ^[0-9a-zA-Z._-]+$ ]]; then
+        Welcome="Special Character allowed are ._- , Invalid name !!"
+        DONT_CHANGE_WELCOME=1
     else 
+        nameofvault=$tempname
         echo "Creating your vault..."
         NID=$(notify-send  -p "Starting to create your vault")
         dd if=/dev/zero of="$FOLDER/$nameofvault.img" bs=1 count=0 seek=$size 
