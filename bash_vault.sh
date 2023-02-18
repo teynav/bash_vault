@@ -290,7 +290,7 @@ function createvault {
                 close 
             fi
         else 
-            d_input=$(zenity --title="Vaults"  --text="$Welcome" --forms --add-combo="Action" --combo-values="Open|Close|Rename|Delete|Extend" --add-combo="Choose Vault" --combo-values="$A_VAULT" --show-header --extra-button "Create new" --cancel-label="Exit & Close" --extra-button "Exit & Wait")
+            d_input=$(zenity --title="Vaults"  --text="$Welcome" --forms --add-combo="Action" --combo-values="Open|Close|Rename|Change Password|Delete|Extend" --add-combo="Choose Vault" --combo-values="$A_VAULT" --show-header --extra-button "Create new" --cancel-label="Exit & Close" --extra-button "Exit & Wait")
             returncode=$?
             if [[ "$d_input" == "Create new" ]]; then 
                 createvault
@@ -454,6 +454,33 @@ function createvault {
                             echo 100
                             fi 
                         fi
+                    elif [[ "$action" == "Change Password" ]];then
+                        d_input="$(zenity --forms --add-entry="Old Password" --add-entry="New Password" --add-entry="Verify New Password")"
+                        sucess=$?
+                        if [[ $sucess == "0" ]];then  
+                            SAVEIFS=$IFS && IFS=$'|' && d_input=($d_input) ; IFS=$SAVEIFS
+                            oldp="$(echo ${d_input[0]}  )"
+                            newp_1="$(echo ${d_input[1]} )"
+                            newp_2="$(echo ${d_input[2]} )"
+                            if [[ "$newp_1" != "$newp_2" ]];then 
+                                Welcome="Password's Don't Match, Exiting"
+                            elif [[ "$newp_2" == "" ]] || [[ "$oldp" == "" ]];then 
+                                Welcome="Please Enter All Parameters For Changing Password"
+                            elif [[ "$newp_2" == "$oldp" ]];then 
+                                Welcome="Old and New password can't be same"
+                            else
+                                echo -n "$oldp" | cryptsetup luksChangeKey "$FOLDER/$vault_a" -d - <(echo -n "$newp_2")
+                                sucess=$?
+                                if [[ $sucess != "0" ]];then
+                                    Welcome="You Entered Wrong Old Password"
+                                else 
+                                    Welcome="Password changed for $vault_a"
+                                fi 
+                            fi 
+                        else
+                            Welcome="Password Change Cancelled"
+                        fi
+                        DONT_CHANGE_WELCOME=1
                     else 
                         dorightthing
                     fi
