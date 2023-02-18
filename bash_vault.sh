@@ -333,25 +333,25 @@ function createvault {
                         DONT_CHANGE_WELCOME=1
                     else 
                         newname_spaceless="$(echo $newname | sed 's/ //g')"
-                         if ! [[ $newname_spaceless =~ ^[0-9a-zA-Z._-]+$ ]]; then
-                          Welcome="$newname Has invalid characters, Name Change Cancelled"
-                          DONT_CHANGE_WELCOME=1
-                         else
-                             if [ -p "$PIPE/$vault_a" ];then 
-                                 echo close > "$PIPE/$vault_a"
-                                 sleep 2
-                             fi
-                             newname="$newname.img"
-                             mv "$FOLDER/$vault_a" "$FOLDER/$newname"
-                             result=$?
-                             if [[ "$result" != "0" ]];then 
-                                 Welcome="$vault_a Name Couldn't be changed"
-                                 DONT_CHANGE_WELCOME=1
-                             else
-                                 Welcome="$vault_a Name Changed to $newname"
-                                 DONT_CHANGE_WELCOME=1
-                             fi 
-                         fi 
+                        if ! [[ $newname_spaceless =~ ^[0-9a-zA-Z._-]+$ ]]; then
+                            Welcome="$newname Has invalid characters, Name Change Cancelled"
+                            DONT_CHANGE_WELCOME=1
+                        else
+                            if [ -p "$PIPE/$vault_a" ];then 
+                                echo close > "$PIPE/$vault_a"
+                                sleep 2
+                            fi
+                            newname="$newname.img"
+                            mv "$FOLDER/$vault_a" "$FOLDER/$newname"
+                            result=$?
+                            if [[ "$result" != "0" ]];then 
+                                Welcome="$vault_a Name Couldn't be changed"
+                                DONT_CHANGE_WELCOME=1
+                            else
+                                Welcome="$vault_a Name Changed to $newname"
+                                DONT_CHANGE_WELCOME=1
+                            fi 
+                        fi 
                     fi 
                 elif [[ "$action" == "Extend" ]];then
                     sizern=$(du --apparent-size "$vault_a" | sed -e "s/$vault_a//g")
