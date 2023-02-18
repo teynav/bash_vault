@@ -63,17 +63,40 @@ function dorightthing {
     fi 
 }
 function waitonthis {
-    while true;do
-        sleep 5
-    done
+    UUID=$1
+    CLOSE_VAULT=$2
+    mkfifo "$PIPE/$UUID"
+    echo close > "$PIPE/$CLOSE_VAULT"
+    while true; do
+        read line < "$PIPE/$UUID"
+        echo "Received $line"
+        if [[ "$line" == "true" ]];then 
+             rm "$PIPE/$UUID"
+                return 0
+        else
+             rm "$PIPE/$UUID"
+                return 1
+        fi 
+    done 
 }
 function closethis {
     rm -rf "$PIPE/$VAULTS"
+    result=0
     if [[ "$MOUNT_FOLDER_NAME" != "" ]];then 
         umount "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null 
         rm -rf "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null 
         cryptsetup luksClose "$UUID" &>/dev/null
+        result=$?
     fi
+        if [ -p "$PIPE/$CALL_BACK_AT" ];then
+         if [[ "$result" != "0" ]];then 
+             echo false > "$PIPE/$CALL_BACK_AT" &
+             sleep 2
+         else 
+             echo true > "$PIPE/$CALL_BACK_AT" &
+             sleep 2
+         fi 
+        fi
     exit 0
 }
 function createvault {
@@ -139,6 +162,7 @@ function createvault {
     function open {
         UUID=$(uuidgen)
         MOUNT_FOLDER_NAME="$VAULTS.data"
+        CALL_BACK_AT=""
         trap closethis  SIGTERM SIGINT EXIT
         if [ ! -d "$PIPE"  ];then 
             mkdir "$PIPE"  
@@ -212,6 +236,8 @@ function createvault {
             if [[ "$line" == "close" ]];then
                 closethis
                 exit 0
+            elif [[ "$line" = close:* ]];then
+                CALL_BACK_AT=$(echo $line | sed '/close://g' )
             else 
                 sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME"
             fi
