@@ -63,19 +63,18 @@ function dorightthing {
     fi 
 }
 function waitonthis {
-    UUID=$1
-    CLOSE_VAULT=$2
+    UUID="$(uuidgen)"
+    CLOSE_VAULT=$1
     mkfifo "$PIPE/$UUID"
-    echo close > "$PIPE/$CLOSE_VAULT"
+    echo "close:$UUID" > "$PIPE/$CLOSE_VAULT"
     while true; do
         read line < "$PIPE/$UUID"
-        echo "Received $line"
         if [[ "$line" == "true" ]];then 
-             rm "$PIPE/$UUID"
-                return 0
+            rm -f "$PIPE/$UUID"
+            return 0
         else
-             rm "$PIPE/$UUID"
-                return 1
+            rm -f "$PIPE/$UUID"
+            return 1
         fi 
     done 
 }
@@ -88,15 +87,16 @@ function closethis {
         cryptsetup luksClose "$UUID" &>/dev/null
         result=$?
     fi
-        if [ -p "$PIPE/$CALL_BACK_AT" ];then
-         if [[ "$result" != "0" ]];then 
-             echo false > "$PIPE/$CALL_BACK_AT" &
-             sleep 2
-         else 
-             echo true > "$PIPE/$CALL_BACK_AT" &
-             sleep 2
-         fi 
-        fi
+    if [ -p "$PIPE/$CALL_BACK_AT" ];then
+        echo "Calling back at $CALL_BACK_AT"
+        if [[ "$result" != "0" ]];then 
+            echo false > "$PIPE/$CALL_BACK_AT"
+            echo "Sent false"
+        else 
+            echo true > "$PIPE/$CALL_BACK_AT" 
+            echo "Sent true"
+        fi 
+    fi
     exit 0
 }
 function createvault {
@@ -182,7 +182,7 @@ function createvault {
                 if [[ "$MOTHER_RAN_ME" == "1" ]];then 
                     echo -e "Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME" > "$M_PIPE"
                 else
-                   zenity --title="Vault Error" --info --text="Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"  
+                    zenity --title="Vault Error" --info --text="Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"  
                 fi 
             else 
                 zenity --title="Vault Error" --info --text="Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"  
@@ -237,9 +237,10 @@ function createvault {
                 closethis
                 exit 0
             elif [[ "$line" = close:* ]];then
-                CALL_BACK_AT=$(echo $line | sed '/close://g' )
+                CALL_BACK_AT=$(echo $line | sed 's/close://g' )
+                closethis
             else 
-                sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME"
+                (sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null) & disown
             fi
         done 
     }
@@ -314,7 +315,6 @@ function createvault {
                         dorightthing 1
                         O_VAULT+=($!)
                         sleep 2
-
                     fi 
                     if [ -p "$PIPE/$vault_a" ];then 
                         Welcome="$vault_a has been opened"
@@ -325,9 +325,15 @@ function createvault {
                     fi 
                 elif [[ "$action" == "Close" ]];then
                     if [ -p "$PIPE/$vault_a" ];then 
-                        Welcome="$vault_a has been closed"
-                        echo close >> "$PIPE/$vault_a"
-                        DONT_CHANGE_WELCOME="1"
+                        waitonthis "$vault_a"
+                        has_closed=$?
+                        if [[ $has_closed == "0" ]];then 
+                            Welcome="$vault_a has been closed"
+                            DONT_CHANGE_WELCOME="1"
+                        else
+                            Welcome="$vault_a couldn't be closed"
+                            DONT_CHANGE_WELCOME="1"
+                        fi
                     else
                         Welcome="$vault_a wasn't opened, Select Open to Open"
                         DONT_CHANGE_WELCOME="1"
@@ -340,11 +346,16 @@ function createvault {
                         Welcome="Vault $vault_a was NOT deleted"
                         DONT_CHANGE_WELCOME=1
                     elif [ -p "$PIPE/$vault_a" ];then 
-                        echo close >> "$PIPE/$vault_a"
-                        sleep 3
-                        rm -rf "$FOLDER/$vault_a"
-                        Welcome="Vault $vault_a has been deleted"
-                        DONT_CHANGE_WELCOME=1
+                        waitonthis "$vault_a"
+                        has_closed=$?
+                        if [[ $has_closed == "0" ]];then 
+                            rm -rf "$FOLDER/$vault_a"
+                            Welcome="Vault $vault_a has been deleted"
+                            DONT_CHANGE_WELCOME=1
+                        else
+                            Welcome="$vault_a couldn't be closed for deletion"
+                            DONT_CHANGE_WELCOME="1"
+                        fi
                     else 
                         rm -rf "$FOLDER/$vault_a"
                         Welcome="Vault $vault_a has been deleted"
@@ -364,33 +375,52 @@ function createvault {
                             DONT_CHANGE_WELCOME=1
                         else
                             if [ -p "$PIPE/$vault_a" ];then 
-                                echo close > "$PIPE/$vault_a"
-                                sleep 2
-                            fi
-                            newname="$newname.img"
-                            mv "$FOLDER/$vault_a" "$FOLDER/$newname"
-                            result=$?
-                            if [[ "$result" != "0" ]];then 
-                                Welcome="$vault_a Name Couldn't be changed"
-                                DONT_CHANGE_WELCOME=1
+                                waitonthis "$vault_a"
+                                has_closed=$?
+                                if [[ $has_closed == "0" ]];then 
+                                    newname="$newname.img"
+                                    mv "$FOLDER/$vault_a" "$FOLDER/$newname"
+                                    result=$?
+                                    if [[ "$result" != "0" ]];then 
+                                        Welcome="$vault_a Name Couldn't be changed"
+                                        DONT_CHANGE_WELCOME=1
+                                    else
+                                        Welcome="$vault_a Name Changed to $newname"
+                                        DONT_CHANGE_WELCOME=1
+                                    fi 
+                                else
+                                    Welcome="$vault_a couldn't be closed for Renaming"
+                                    DONT_CHANGE_WELCOME="1"
+                                fi
                             else
-                                Welcome="$vault_a Name Changed to $newname"
-                                DONT_CHANGE_WELCOME=1
+                                mv "$FOLDER/$vault_a" "$FOLDER/$newname"
+                                result=$?
+                                if [[ "$result" != "0" ]];then 
+                                    Welcome="$vault_a Name Couldn't be changed"
+                                    DONT_CHANGE_WELCOME=1
+                                else
+                                    Welcome="$vault_a Name Changed to $newname"
+                                    DONT_CHANGE_WELCOME=1
+                                fi 
                             fi 
                         fi 
-                    fi 
+                    fi
                 elif [[ "$action" == "Extend" ]];then
                     sizern=$(du --apparent-size "$vault_a" | sed -e "s/$vault_a//g")
                     olds=$(( $sizern / 1024 / 1024 ))
                     echo Current Size "$olds"G
                     news=$(zenity --scale  --text="Choose new Size in GB" --min-value=$olds --value=$olds --max-value=$MAX_VAULT_SIZE  --step=2)
                     sucess=$?
+                    has_closed=0
                     if [ -p "$PIPE/$vault_a" ];then 
-                        echo close >> "$PIPE/$vault_a"
-                        sleep 3
+                        waitonthis "$vault_a"
+                        has_closed=$?
                     fi 
                     echo $news
-                    if [[ "$news" == "$olds" ]];then 
+                    if [[ "$has_closed" != "0" ]];then
+                        Welcome="Couldn't close $vault_a for Resizing"
+                        DONT_CHANGE_WELCOME=1
+                    elif [[ "$news" == "$olds" ]];then 
                         zenity --title="Vaults" --info --text="Old Size is equal to new size, Exiting"
                         Welcome="Enter a different size for $vault_a"
                         DONT_CHANGE_WELCOME=1
