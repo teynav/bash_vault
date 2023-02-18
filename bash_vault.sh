@@ -69,8 +69,8 @@ function waitonthis {
 }
 function closethis {
     rm -rf "$PIPE/$VAULTS"
-    umount "$FOLDER/$UUID" &>/dev/null 
-    rm -rf "$FOLDER/$UUID" &>/dev/null 
+    umount "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null 
+    rm -rf "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null 
     cryptsetup luksClose "$UUID" &>/dev/null
     exit 0
 }
@@ -136,6 +136,7 @@ function createvault {
 
     function open {
         UUID=$(uuidgen)
+        MOUNT_FOLDER_NAME="$VAULTS.data"
         trap closethis  SIGTERM SIGINT EXIT
         if [ ! -d "$PIPE"  ];then 
             mkdir "$PIPE"  
@@ -147,7 +148,7 @@ function createvault {
             chown -R $USER_I:$USER_I "$FOLDER/pipe"
             MOTHER_RAN_ME=0
         fi 
-        mkdir "$FOLDER/$UUID" 
+        mkdir "$FOLDER/$MOUNT_FOLDER_NAME" 
         pass="$(zenity --title="Your Vault = $VAULTS"  --password)"
         echo -n $pass | cryptsetup luksOpen "$FOLDER/$VAULTS" "$UUID" - 1> /dev/null
         sucess=$?
@@ -159,7 +160,7 @@ function createvault {
             fi 
             closethis 
         fi 
-        mount "/dev/mapper/$UUID" "$FOLDER/$UUID"
+        mount "/dev/mapper/$UUID" "$FOLDER/$MOUNT_FOLDER_NAME"
         sucess=$?
         if [[ "$sucess" != "0" ]];then
             if [ -p "$M_PIPE" ];then 
@@ -169,8 +170,8 @@ function createvault {
             fi 
             closethis
         fi 
-        chown -R $USER_I:$USER_I "$FOLDER/$UUID"
-        (sudo -u $USER_I xdg-open "$FOLDER/$UUID" &>/dev/null) & disown
+        chown -R $USER_I:$USER_I "$FOLDER/$MOUNT_FOLDER_NAME"
+        (sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null) & disown
         if [ -p "$M_PIPE" ];then
             if [[ "$MOTHER_RAN_ME" == "1" ]];then 
                 echo okay > "$M_PIPE"
@@ -188,7 +189,7 @@ function createvault {
                 closethis
                 exit 0
             else 
-                sudo -u $USER_I xdg-open "$FOLDER/$UUID"
+                sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME"
             fi
         done 
     }
