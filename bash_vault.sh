@@ -105,7 +105,7 @@ function createvault {
         echo "Creating your vault..."
         NID=$(notify-send  -p "Starting to create your vault")
         dd if=/dev/zero of="$FOLDER/$nameofvault.img" bs=1 count=0 seek=$size 
- #       VAULTS="$VAULTS:$FOLDER/$nameofvault.img"
+        #       VAULTS="$VAULTS:$FOLDER/$nameofvault.img"
         echo "Now setup a password to $nameofvault"
         echo -n $pass | cryptsetup  luksFormat "$FOLDER/$nameofvault.img" -d -
         NID=$(notify-send -r $NID -p "Formatting Vault with LUKS ")
@@ -137,9 +137,11 @@ function createvault {
             mkdir $PIPE  
             mkfifo "$PIPE/$VAULTS"
             chown -R $USER_I:$USER_I "$FOLDER/pipe"
+            MOTHER_RAN_ME=0
         elif [ ! -p "$PIPE/$VAULTS" ];then
             mkfifo "$PIPE/$VAULTS"
             chown -R $USER_I:$USER_I "$FOLDER/pipe"
+            MOTHER_RAN_ME=0
         fi 
         mkdir "$FOLDER/$UUID" 
         pass="$(zenity --title="Vaults" --title="Your Vault = $VAULTS"  --password)"
@@ -147,9 +149,9 @@ function createvault {
         sucess=$?
         if [[ "$sucess" != "0" ]];then
             if [ -p $M_PIPE ];then 
-            echo -e "Error: Bad password for $VAULTS \n Please Try Again" > $M_PIPE
+                echo -e "Error: Bad password for $VAULTS \n Please Try Again" > $M_PIPE
             else 
-            zenity --title="Vault Error" --info --text="Error: Bad password for $VAULTS \n Please Try Again"  
+                zenity --title="Vault Error" --info --text="Error: Bad password for $VAULTS \n Please Try Again"  
             fi 
             closethis 
         fi 
@@ -159,15 +161,22 @@ function createvault {
             if [ -p $M_PIPE ];then 
                 echo -e "Error: Damaged $VAULTS, Needs to be deleted" > $M_PIPE
             else 
-               zenity --title="Vault Error" --info --text="Error: Damaged $VAULTS \n Need to be deleted"  
+                zenity --title="Vault Error" --info --text="Error: Damaged $VAULTS \n Need to be deleted"  
             fi 
             closethis
         fi 
         chown -R $USER_I:$USER_I "$FOLDER/$UUID"
         (sudo -u $USER_I xdg-open "$FOLDER/$UUID" &>/dev/null) & disown
-        if [ -p $M_PIPE ];then 
-             echo okay > $M_PIPE
+        if [ -p $M_PIPE ];then
+            if [[ "$MOTHER_RAN_ME" == "1" ]];then 
+                echo okay > $M_PIPE
+            else
+                notify-send -p "Your $VAULTS has been opened"
+            fi 
+        else
+            notify-send -p "Your $VAULTS has been opened"
         fi 
+
         while true; do
             echo "IN loop"
             read line < "$PIPE/$VAULTS"
@@ -225,24 +234,24 @@ function createvault {
                         dorightthing 1
                         O_VAULT+=($!)
                         sleep 2
-                                           
+
                     fi 
-                        if [ -p "$PIPE/$vault_a" ];then 
-                            Welcome="$vault_a has been opened"
-                            DONT_CHANGE_WELCOME="1"
-                        else
-                            Welcome="$vault_a couldn't be opened"
-                            DONT_CHANGE_WELCOME="1"
-                        fi 
+                    if [ -p "$PIPE/$vault_a" ];then 
+                        Welcome="$vault_a has been opened"
+                        DONT_CHANGE_WELCOME="1"
+                    else
+                        Welcome="$vault_a couldn't be opened"
+                        DONT_CHANGE_WELCOME="1"
+                    fi 
                 elif [[ "$action" == "Close" ]];then
-                        if [ -p "$PIPE/$vault_a" ];then 
-                            Welcome="$vault_a has been closed"
-                            echo close >> "$PIPE/$vault_a"
-                            DONT_CHANGE_WELCOME="1"
-                        else
-                            Welcome="$vault_a wasn't opened, Select Open to Open"
-                            DONT_CHANGE_WELCOME="1"
-                        fi 
+                    if [ -p "$PIPE/$vault_a" ];then 
+                        Welcome="$vault_a has been closed"
+                        echo close >> "$PIPE/$vault_a"
+                        DONT_CHANGE_WELCOME="1"
+                    else
+                        Welcome="$vault_a wasn't opened, Select Open to Open"
+                        DONT_CHANGE_WELCOME="1"
+                    fi 
                 elif [[ "$action" == "Delete" ]];then
                     zenity --title="Vaults" --question --text="Are you sure to delete $vault_a?"
                     response=$?
@@ -326,6 +335,7 @@ function createvault {
             FOLDER="/home/$USER_I/$VAULT_FOLDER"
             PIPE="$FOLDER/pipe"
             M_PIPE="$FOLDER/pipe/m_pipe"
+            MOTHER_RAN_ME=1
             if [ $1 == 0 ];then 
                 exit 1
             fi
