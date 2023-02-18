@@ -374,11 +374,11 @@ function createvault {
                             Welcome="$newname Has invalid characters, Name Change Cancelled"
                             DONT_CHANGE_WELCOME=1
                         else
+                            newname="$newname.img"
                             if [ -p "$PIPE/$vault_a" ];then 
                                 waitonthis "$vault_a"
                                 has_closed=$?
                                 if [[ $has_closed == "0" ]];then 
-                                    newname="$newname.img"
                                     mv "$FOLDER/$vault_a" "$FOLDER/$newname"
                                     result=$?
                                     if [[ "$result" != "0" ]];then 
