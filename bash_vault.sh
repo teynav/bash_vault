@@ -77,7 +77,7 @@ function closethis {
 function createvault {
     d_input=$(zenity --title="Vaults" --forms --add-entry="Name Of Vault: " --text="Create your vault" --add-password="Password of Vault" --add-combo="Size(Default: 1024M)" --combo-values="1024M|2048M|5G|10G|20G")
     SAVEIFS=$IFS && IFS=$'|' && d_input=($d_input) ; IFS=$SAVEIFS
-    nameofvault="$(echo ${d_input[0]} | xargs | sed 's/\.img//g' )"
+    nameofvault="$(echo ${d_input[0]} | xargs | sed 's/\.img$//g' )"
     tempname=$nameofvault
     nameofvault=$(echo $nameofvault | sed 's/ /-/g')
     pass="$(echo ${d_input[1]} | xargs )"
@@ -238,7 +238,7 @@ function createvault {
                 close 
             fi
         else 
-            d_input=$(zenity --title="Vaults"  --text="$Welcome" --forms --add-combo="Action" --combo-values="Open|Close|Delete|Extend" --add-combo="Choose Vault" --combo-values="$A_VAULT" --show-header --extra-button "Create new" --cancel-label="Exit & Close" --extra-button "Exit & Wait")
+            d_input=$(zenity --title="Vaults"  --text="$Welcome" --forms --add-combo="Action" --combo-values="Open|Close|Rename|Delete|Extend" --add-combo="Choose Vault" --combo-values="$A_VAULT" --show-header --extra-button "Create new" --cancel-label="Exit & Close" --extra-button "Exit & Wait")
             returncode=$?
             if [[ "$d_input" == "Create new" ]]; then 
                 createvault
@@ -299,6 +299,35 @@ function createvault {
                         Welcome="Vault $vault_a has been deleted"
                         DONT_CHANGE_WELCOME=1
                     fi
+                elif [[ "$action" == "Rename" ]];then
+                    vault_old_name="$(echo $vault_a | sed 's/\.img$//g' )"
+                    newname="$(zenity --entry --entry-text="$vault_old_name" --text="Enter new name" | sed 's/\.img$//g')"
+                    result=$?
+                    if [[ "$result" != "0" ]];then 
+                        Welcome="$vault_a Name Change Was Cancelled"
+                        DONT_CHANGE_WELCOME=1
+                    else 
+                        newname_spaceless="$(echo $newname | sed 's/ //g')"
+                         if ! [[ $newname_spaceless =~ ^[0-9a-zA-Z._-]+$ ]]; then
+                          Welcome="$newname Has invalid characters, Name Change Cancelled"
+                          DONT_CHANGE_WELCOME=1
+                         else
+                             if [ -p "$PIPE/$vault_a" ];then 
+                                 echo close > "$PIPE/$vault_a"
+                                 sleep 2
+                             fi
+                             newname="$newname.img"
+                             mv "$FOLDER/$vault_a" "$FOLDER/$newname"
+                             result=$?
+                             if [[ "$result" != "0" ]];then 
+                                 Welcome="$vault_a Name Couldn't be changed"
+                                 DONT_CHANGE_WELCOME=1
+                             else
+                                 Welcome="$vault_a Name Changed to $newname"
+                                 DONT_CHANGE_WELCOME=1
+                             fi 
+                         fi 
+                    fi 
                 elif [[ "$action" == "Extend" ]];then
                     sizern=$(du --apparent-size "$vault_a" | sed -e "s/$vault_a//g")
                     olds=$(( $sizern / 1024 / 1024 ))
