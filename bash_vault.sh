@@ -158,7 +158,7 @@ function createvault {
                 if [[ "$MOTHER_RAN_ME" == "1" ]];then 
                     echo -e "Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME" > "$M_PIPE"
                 else
-                    notify-send -p "Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"
+                   zenity --title="Vault Error" --info --text="Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"  
                 fi 
             else 
                 zenity --title="Vault Error" --info --text="Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"  
