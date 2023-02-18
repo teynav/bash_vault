@@ -5,6 +5,7 @@
 #
 MAX_VAULT_SIZE=30
 VAULT_FOLDER=".vaults"
+PASSWORD_LEN=8
 
 USER_I=$(whoami)
 FOLDER="/home/$USER_I/$VAULT_FOLDER"
@@ -105,15 +106,16 @@ function createvault {
     nameofvault="$(echo ${d_input[0]} | xargs | sed 's/\.img$//g' )"
     tempname=$nameofvault
     nameofvault=$(echo $nameofvault | sed 's/ /-/g')
-    pass="$(echo ${d_input[1]} | xargs )"
+    pass="$(echo ${d_input[1]})"
     size="$(echo ${d_input[2]} | xargs )"
     if [[ "$size" == "" ]];then 
         size="1024M"
-    fi 
-    if [[ "$pass" == "" ]];then 
-        Welcome="You forgot to put enter password for new vault"
+    fi
+    pass_size=${#pass}
+    if [[ $pass_size -lt $PASSWORD_LEN ]];then 
+        Welcome="Failed! Enter Password with > $PASSWORD_LEN characters on vaults"
         DONT_CHANGE_WELCOME=1
-        zenity --title="Vaults" --info --text="Incomplete info was given, no Password provided" --title="Error"
+        zenity --title="Vaults" --info --text="Failed! Password Size Should be >= $PASSWORD_LEN " --title="Error"
     elif [[ "$nameofvault" == "" ]];then 
         Welcome="You forgot to put Name of Vault"
         DONT_CHANGE_WELCOME=1
@@ -462,10 +464,13 @@ function createvault {
                             oldp="$(echo ${d_input[0]}  )"
                             newp_1="$(echo ${d_input[1]} )"
                             newp_2="$(echo ${d_input[2]} )"
+                            pass_size=${#newp_1}
                             if [[ "$newp_1" != "$newp_2" ]];then 
                                 Welcome="Password's Don't Match, Exiting"
                             elif [[ "$newp_2" == "" ]] || [[ "$oldp" == "" ]];then 
                                 Welcome="Please Enter All Parameters For Changing Password"
+                            elif [[ $pass_size -lt $PASSWORD_LEN ]];then
+                                Welcome="Password Too Short, Minimum Char $PASSWORD_LEN"
                             elif [[ "$newp_2" == "$oldp" ]];then 
                                 Welcome="Old and New password can't be same"
                             else
