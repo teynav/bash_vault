@@ -15,15 +15,15 @@ MKFS="mkfs.ext4"
 SHOWN_INFO_ONCE=0
 DONT_CHANGE_WELCOME=0
 FILE_E=$(realpath $0)
-if [[ -p $M_PIPE ]]; then
-    echo okay > $M_PIPE
+if [[ -p "$M_PIPE" ]]; then
+    echo okay > "$M_PIPE"
     exit 0
 fi 
 function close {
     if [[ "$JUSTCLOSE" == "yes" ]];then 
         exit 0 
     fi
-    if [[ ! -d $PIPE ]];then 
+    if [[ ! -d "$PIPE" ]];then 
         exit 0
     fi 
     cd "$PIPE" 
@@ -36,7 +36,7 @@ function close {
     exit 0
 }
 function dorightthing {
-    files=$(ls -al $PIPE/*.img | wc -l )
+    files=$(ls -al "$PIPE/"*.img | wc -l )
     if [[ "$files" == "0" ]];then
         zenity --title="Vaults" --info --title="Exit" --text="None of the vaults are opened" --timeout=10
         close 
@@ -48,7 +48,7 @@ function dorightthing {
             fi 
         fi
         while true;do 
-            read line < $M_PIPE
+            read line < "$M_PIPE"
             echo "Received $line"
             if [[ "$line" == "closeall" ]];then 
                 close 
@@ -126,15 +126,19 @@ function createvault {
     }
 
     function newinstall {
-        mkdir $FOLDER
+        mkdir "$FOLDER"
+        if [ ! -d "$FOLDER" ];then 
+            zenity --info --title="\$VAULT_FOLDER Has been configured wrong, Exiting \nCheck github page"
+            exit 0
+        fi 
         createvault 
     }
 
     function open {
         UUID=$(uuidgen)
         trap closethis  SIGTERM SIGINT EXIT
-        if [ ! -d $PIPE  ];then 
-            mkdir $PIPE  
+        if [ ! -d "$PIPE"  ];then 
+            mkdir "$PIPE"  
             mkfifo "$PIPE/$VAULTS"
             chown -R $USER_I:$USER_I "$FOLDER/pipe"
             MOTHER_RAN_ME=0
@@ -144,22 +148,22 @@ function createvault {
             MOTHER_RAN_ME=0
         fi 
         mkdir "$FOLDER/$UUID" 
-        pass="$(zenity --title="Vaults" --title="Your Vault = $VAULTS"  --password)"
+        pass="$(zenity --title="Your Vault = $VAULTS"  --password)"
         echo -n $pass | cryptsetup luksOpen "$FOLDER/$VAULTS" "$UUID" - 1> /dev/null
         sucess=$?
         if [[ "$sucess" != "0" ]];then
-            if [ -p $M_PIPE ];then 
-                echo -e "Error: Bad password for $VAULTS \n Please Try Again" > $M_PIPE
+            if [ -p "$M_PIPE" ];then 
+                echo -e "Error: Bad password for $VAULTS \n Please Try Again" > "$M_PIPE"
             else 
                 zenity --title="Vault Error" --info --text="Error: Bad password for $VAULTS \n Please Try Again"  
             fi 
             closethis 
         fi 
-        mount /dev/mapper/$UUID "$FOLDER/$UUID"
+        mount "/dev/mapper/$UUID" "$FOLDER/$UUID"
         sucess=$?
         if [[ "$sucess" != "0" ]];then
-            if [ -p $M_PIPE ];then 
-                echo -e "Error: Damaged $VAULTS, Needs to be deleted" > $M_PIPE
+            if [ -p "$M_PIPE" ];then 
+                echo -e "Error: Damaged $VAULTS, Needs to be deleted" > "$M_PIPE"
             else 
                 zenity --title="Vault Error" --info --text="Error: Damaged $VAULTS \n Need to be deleted"  
             fi 
@@ -167,9 +171,9 @@ function createvault {
         fi 
         chown -R $USER_I:$USER_I "$FOLDER/$UUID"
         (sudo -u $USER_I xdg-open "$FOLDER/$UUID" &>/dev/null) & disown
-        if [ -p $M_PIPE ];then
+        if [ -p "$M_PIPE" ];then
             if [[ "$MOTHER_RAN_ME" == "1" ]];then 
-                echo okay > $M_PIPE
+                echo okay > "$M_PIPE"
             else
                 notify-send -p "Your $VAULTS has been opened"
             fi 
@@ -354,7 +358,7 @@ function createvault {
             echo "This will be location of your vaults"
             if [[ "$PASS" == "" ]];
             then 
-                PASS="$(zenity --title="Vaults" --title="Please enter your sudo password"  --password)"
+                PASS="$(zenity  --title="Please enter your sudo password"  --password)"
             fi
             echo $PASS | sudo -S echo "Checking if sudo password is correct"
             result=$?
@@ -366,9 +370,9 @@ function createvault {
             newinstall
             fi
             O_VAULT=()
-            mkdir $PIPE
-            mkfifo $M_PIPE
-            cd $FOLDER
+            mkdir "$PIPE"
+            mkfifo "$M_PIPE"
+            cd "$FOLDER"
             echo "Welcome to your vaults"
             Welcome=""
             while true; do
@@ -378,7 +382,7 @@ function createvault {
                 fi
                 if [[ "$PASS" == "" ]];
                 then 
-                    PASS="$(zenity --title="Vaults" --title="Please enter your sudo password"  --password)"
+                    PASS="$(zenity  --title="Please enter your sudo password"  --password)"
                     echo $PASS | sudo -S echo "Checking if sudo password is correct"
                     result=$?
                     if [[ "$result" != "0" ]];then 
