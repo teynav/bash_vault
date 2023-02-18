@@ -129,10 +129,10 @@ function createvault {
         trap closethis  SIGTERM SIGINT EXIT
         if [ ! -d $PIPE  ];then 
             mkdir $PIPE  
-            mkfifo $PIPE/$VAULTS
+            mkfifo "$PIPE/$VAULTS"
             chown -R $USER_I:$USER_I "$FOLDER/pipe"
-        elif [ ! -p $PIPE/$VAULTS ];then
-            mkfifo $PIPE/$VAULTS
+        elif [ ! -p "$PIPE/$VAULTS" ];then
+            mkfifo "$PIPE/$VAULTS"
             chown -R $USER_I:$USER_I "$FOLDER/pipe"
         fi 
         mkdir "$FOLDER/$UUID" 
@@ -164,7 +164,7 @@ function createvault {
         fi 
         while true; do
             echo "IN loop"
-            read line < $PIPE/$VAULTS
+            read line < "$PIPE/$VAULTS"
             if [[ "$line" == "close" ]];then
                 closethis
                 exit 0
@@ -212,10 +212,10 @@ function createvault {
                 elif [[ $action == "Open" ]];
                 then
                     if [ -p "$PIPE/$vault_a" ];then 
-                        echo open >> $PIPE/$vault_a
+                        echo open >> "$PIPE/$vault_a"
                     else 
                         mkfifo "$PIPE/$vault_a"
-                        echo $PASS | sudo -S "$FILE_E" $USER_I $vault_a & disown
+                        echo $PASS | sudo -S "$FILE_E" $USER_I "$vault_a" & disown
                         dorightthing 1
                         O_VAULT+=($!)
                         sleep 2
@@ -244,25 +244,25 @@ function createvault {
                         echo "Deletion cancelled"
                         Welcome="Vault $vault_a was NOT deleted"
                         DONT_CHANGE_WELCOME=1
-                    elif [ -p $PIPE/$vault_a ];then 
-                        echo close >> $PIPE/$vault_a
+                    elif [ -p "$PIPE/$vault_a" ];then 
+                        echo close >> "$PIPE/$vault_a"
                         sleep 3
-                        rm -rf $FOLDER/$vault_a
+                        rm -rf "$FOLDER/$vault_a"
                         Welcome="Vault $vault_a has been deleted"
                         DONT_CHANGE_WELCOME=1
                     else 
-                        rm -rf $FOLDER/$vault_a
+                        rm -rf "$FOLDER/$vault_a"
                         Welcome="Vault $vault_a has been deleted"
                         DONT_CHANGE_WELCOME=1
                     fi
                 elif [[ "$action" == "Extend" ]];then
-                    sizern=$(du --apparent-size $vault_a | sed -e "s/$vault_a//g")
+                    sizern=$(du --apparent-size "$vault_a" | sed -e "s/$vault_a//g")
                     olds=$(( $sizern / 1024 / 1024 ))
                     echo Current Size "$olds"G
                     news=$(zenity --scale  --text="Choose new Size in GB" --min-value=$olds --value=$olds --max-value=$MAX_VAULT_SIZE  --step=2)
                     sucess=$?
-                    if [ -p $PIPE/$vault_a ];then 
-                        echo close >> $PIPE/$vault_a
+                    if [ -p "$PIPE/$vault_a" ];then 
+                        echo close >> "$PIPE/$vault_a"
                         sleep 3
                     fi 
                     echo $news
@@ -285,7 +285,7 @@ function createvault {
                             NID=$(notify-send -p "First Closing Up Everything")
                             echo $PASS | sudo -S  cryptsetup luksClose "$UUID"
                             echo 20
-                            dd if=/dev/zero of=$vault_a bs=1 count=0 seek="$news"G
+                            dd if=/dev/zero of="$vault_a" bs=1 count=0 seek="$news"G
                             NID=$(notify-send  -r $NID -p "Opening and Trying to Resize")
                             echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup luksOpen \"$FOLDER/$vault_a\" \"$UUID\" -d -"
                             echo 40
