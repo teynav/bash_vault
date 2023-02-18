@@ -173,7 +173,7 @@ function createvault {
                 if [[ "$MOTHER_RAN_ME" == "1" ]];then 
                     echo -e "Error: Bad password for $VAULTS \n Please Try Again" > "$M_PIPE"
                 else
-                    notify-send -p "Error: Bad password for $VAULTS \n Please Try Again"
+                    zenity --title="Vault Error" --info --text="Error: Bad password for $VAULTS \n Please Try Again"  
                 fi 
             else 
                 zenity --title="Vault Error" --info --text="Error: Bad password for $VAULTS \n Please Try Again"  
@@ -187,23 +187,22 @@ function createvault {
                 if [[ "$MOTHER_RAN_ME" == "1" ]];then 
                     echo -e "Error: Damaged $VAULTS, Needs to be deleted" > "$M_PIPE"
                 else
-                    notify-send -p "Error: Damaged $VAULTS, Needs to be deleted"
+                    zenity --title="Vault Error" --info --text="Error: Damaged $VAULTS \n Need to be deleted"  
                 fi 
             else 
                 zenity --title="Vault Error" --info --text="Error: Damaged $VAULTS \n Need to be deleted"  
             fi 
             closethis
         fi 
-        chown -R $USER_I:$USER_I "$FOLDER/$MOUNT_FOLDER_NAME"
         (sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null) & disown
         if [ -p "$M_PIPE" ];then
             if [[ "$MOTHER_RAN_ME" == "1" ]];then 
                 echo okay > "$M_PIPE"
             else
-                notify-send -p "Your $VAULTS has been opened"
+                zenity --title="Vault Opened" --info --text="Your $VAULTS has been opened"
             fi 
         else
-            notify-send -p "Your $VAULTS has been opened"
+            zenity --title="Vault Opened" --info --text="Your $VAULTS has been opened"
         fi 
 
         while true; do
