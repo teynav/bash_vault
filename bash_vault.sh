@@ -69,9 +69,11 @@ function waitonthis {
 }
 function closethis {
     rm -rf "$PIPE/$VAULTS"
-    umount "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null 
-    rm -rf "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null 
-    cryptsetup luksClose "$UUID" &>/dev/null
+    if [[ "$MOUNT_FOLDER_NAME" != "" ]];then 
+        umount "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null 
+        rm -rf "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null 
+        cryptsetup luksClose "$UUID" &>/dev/null
+    fi
     exit 0
 }
 function createvault {
@@ -148,13 +150,31 @@ function createvault {
             chown -R $USER_I:$USER_I "$FOLDER/pipe"
             MOTHER_RAN_ME=0
         fi 
-        mkdir "$FOLDER/$MOUNT_FOLDER_NAME" 
+        mkdir "$FOLDER/$MOUNT_FOLDER_NAME"
+        sucess=$?
+        if [[ "$sucess" != "0" ]];then
+            MOUNT_FOLDER_NAME=""
+            if [ -p "$M_PIPE" ];then 
+                if [[ "$MOTHER_RAN_ME" == "1" ]];then 
+                    echo -e "Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME" > "$M_PIPE"
+                else
+                    notify-send -p "Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"
+                fi 
+            else 
+                zenity --title="Vault Error" --info --text="Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"  
+            fi 
+            closethis 
+        fi 
         pass="$(zenity --title="Your Vault = $VAULTS"  --password)"
         echo -n $pass | cryptsetup luksOpen "$FOLDER/$VAULTS" "$UUID" - 1> /dev/null
         sucess=$?
         if [[ "$sucess" != "0" ]];then
             if [ -p "$M_PIPE" ];then 
-                echo -e "Error: Bad password for $VAULTS \n Please Try Again" > "$M_PIPE"
+                if [[ "$MOTHER_RAN_ME" == "1" ]];then 
+                    echo -e "Error: Bad password for $VAULTS \n Please Try Again" > "$M_PIPE"
+                else
+                    notify-send -p "Error: Bad password for $VAULTS \n Please Try Again"
+                fi 
             else 
                 zenity --title="Vault Error" --info --text="Error: Bad password for $VAULTS \n Please Try Again"  
             fi 
@@ -164,7 +184,11 @@ function createvault {
         sucess=$?
         if [[ "$sucess" != "0" ]];then
             if [ -p "$M_PIPE" ];then 
-                echo -e "Error: Damaged $VAULTS, Needs to be deleted" > "$M_PIPE"
+                if [[ "$MOTHER_RAN_ME" == "1" ]];then 
+                    echo -e "Error: Damaged $VAULTS, Needs to be deleted" > "$M_PIPE"
+                else
+                    notify-send -p "Error: Damaged $VAULTS, Needs to be deleted"
+                fi 
             else 
                 zenity --title="Vault Error" --info --text="Error: Damaged $VAULTS \n Need to be deleted"  
             fi 
