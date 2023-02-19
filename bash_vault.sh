@@ -212,17 +212,37 @@ function createvault {
         vault_name=$1
         action_to_take=$2
         file_for_logging="$FOLDER/.filevaults"
-        is_using_keyfile=$( echo $PASS | sudo -E -S cat "$FOLDER/.filevaults" | grep "$vault_name" | wc -l )
+        is_using_keyfile=$( echo $PASS | sudo -E -S cat "$FOLDER/.filevaults" | grep "$vault_name" )
+        default_keyfile_label="Enable AutoOpen Keyfile"
+        is_using_default_keyfile="$(echo $is_using_keyfile| sed "s/^$vault_name//g" | xargs)"
+        mode_to_work=${is_using_default_keyfile:0:1}
+        is_using_default_keyfile=${is_using_default_keyfile:1}
+
+        if [[ "$mode_to_work" == "" ]] && [[ "$is_using_keyfile" != "" ]];then
+            is_using_keyfile=1
+        elif [[ "$mode_to_work" == "p" ]];then 
+            is_using_keyfile=0
+        elif [[ "$mode_to_work" == "k" ]];then 
+            is_using_keyfile=1
+        else 
+            is_using_keyfile=0
+        fi 
+        if [[ "$is_using_default_keyfile" != "" ]];then 
+            default_keyfile_label="Remove AutoOpen Keyfile"
+        fi
+        if [[ "$action_to_take" != "" ]];then 
+            d_input=$action_to_take
+        fi 
         is_using_keyfile_bak=$is_using_keyfile
         if [[ "$is_using_keyfile" == "0" ]] && [[ "$action_to_take" == "" ]];then 
-            d_input="$(zenity --list --title="$vault_name Passwords" --column="Modify Password" "Add Password" "Add Keyfile" "Change Password" "Remove Password"  --extra-button="Enable Keyfile" --height=300 )"
+            d_input="$(zenity --list --title="$vault_name Passwords" --column="Modify Password" "Add Password" "Add Keyfile" "Change Password" "Remove Password"  --extra-button="Enable Keyfile" --extra-button="$default_keyfile_label" --height=300 )"
         elif [[ "$action_to_take" == "" ]];then 
-            d_input="$(zenity --list --title="$vault_name Passwords" --column="Modify Password" "Add Password" "Add Keyfile" "Change Password" "Change Keyfile" "Remove Password" "Remove Keyfile" --extra-button="Disable Keyfile" --height=300 )"
+            d_input="$(zenity --list --title="$vault_name Passwords" --column="Modify Password" "Add Password" "Add Keyfile" "Change Password" "Change Keyfile" "Remove Password" "Remove Keyfile" --extra-button="Disable Keyfile" --extra-button="$default_keyfile_label" --height=300 )"
         fi
         if [[ "$d_input" == "Change Password" ]]||[[ "$d_input" == "Remove Password" ]];then 
             is_using_keyfile=0
         fi 
-        if [[ "$d_input" == "Change Keyfile" ]]||[[ "$d_input" == "Remove Keyfile" ]];then 
+        if [[ "$d_input" == "Change Keyfile" ]]||[[ "$d_input" == "Remove Keyfile" ]] || [[ "$d_input" == "Enable AutoOpen Keyfile" ]] ;then 
             is_using_keyfile=1
         fi 
         if [[ "$d_input" == "" ]];then 
@@ -230,565 +250,662 @@ function createvault {
             DONT_CHANGE_WELCOME=1
             return 1
         fi
-        if [[ "$d_input" == "Disable Keyfile" ]] || [[ "$action_to_take" == "Disable Keyfile" ]];then
-            zenity --question --title="Vaults" --text="This will disable keyfile, if you don't have password added to $vault_name you won't be able to use vault unless you re-enable Keyfile"
-            answer=$?
-            if [[ "$answer" == "0" ]];then
-                echo $PASS | sudo -E -S sh -c "sed -i \"/$vault_name/d\" \"$file_for_logging\""
-                Welcome="Keyfile disabled on $vault_name"
-                DONT_CHANGE_WELCOME=1
-                return 0
-            else
-                Welcome="Cancelled Toggling On Of Keyfile"
-                DONT_CHANGE_WELCOME=1
-                return 1 
+        if [[ "$is_using_default_keyfile" != "" ]];then
+            prompt_for_this="\nTHIS WILL ALSO STOP AUTO OPENING OF VAULT, IF KEYFILE IS PRESENT"
             fi 
-        elif [[ "$d_input" == "Enable Keyfile" ]] || [[ "$action_to_take" == "Enable Keyfile" ]];then 
-            zenity --question --title="Vaults" --text="This will enable keyfile, if you don't have Keyfile added to $vault_name you won't be able to use vault unless you disable Keyfile"
-            answer=$?
-            if [[ "$answer" == "0" ]];then
-                echo $PASS | sudo -E -S sh -c "echo \"$vault_name\" >> \"$file_for_logging\""
-                Welcome="Keyfile enabled on $vault_name"
-                DONT_CHANGE_WELCOME=1
-                return 0
-            else
-                Welcome="Cancelled Toggling Off of Keyfile"
-                DONT_CHANGE_WELCOME=1
-                return 1
-            fi 
-            fi
-            if [ -p "$PIPE/$vault_name" ];then 
-                waitonthis "$vault_a"
-                has_closed=$?
-                if [[ $has_closed != "0" ]];then 
-                    Welcome="$vault_a couldn't be closed for $d_input"
-                    DONT_CHANGE_WELCOME="1"
-                    return 1
-                fi
-            fi 
-            UUID=$(uuidgen)
-            sucess=0
-            prompt2="Remove"
-            if [[ "$d_input" = Change* ]];then 
-                prompt2="Change"
-            fi
-            prompt="Choose which keyfile to $prompt2"
-            if [[ "$is_using_keyfile" == "0" ]];then
-                prompt="Enter which password to $prompt2"
-            fi 
-            if [[ "$d_input" = Add* ]];then 
-                prompt="Open Your $vault_name, to $d_input"
-            fi 
-            if [[ "$is_using_keyfile" == "0" ]];then
-                pass="$(zenity --title="$prompt"  --password)"
-                sucess=$?
-                Welcome="You Cancelled $d_input for $vault_name"
-                Welcome2="You entered wrong password for $vault_name"
-                echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup luksOpen \"$FOLDER/$vault_name\" \"$UUID\" -d -"
-            else 
-                pass="$(zenity --file-selection --title="$prompt" 2>/dev/null )"
-                sucess=$?
-                Welcome="You Cancelled $d_input for $vault_name"
-                Welcome2="You selected wrong keyfile for $vault_name"
-                echo $PASS | sudo -E -S sh -c "cryptsetup luksOpen \"$FOLDER/$vault_name\" \"$UUID\" --key-file \"$pass\""
-            fi
-
-            if [[ "$sucess" != "0" ]];then
-                DONT_CHANGE_WELCOME=1
-                return 1
-            fi 
-            echo $PASS | sudo -E -S sh -c "cryptsetup luksClose  \"$UUID\" "
-            sucess=$?
-            if [[ "$sucess" != "0" ]];then
-                Welcome=$Welcome2
-                DONT_CHANGE_WELCOME=1
-                return 1
-            fi
-            if [[ "$d_input" == "Add Password" ]] || [[ "$d_input" == "Change Password" ]];then
-                d_input2="$(zenity --forms --title="Vaults" --text="New password for $vault_name" --add-password="New Password" --add-password="Verify New Password")"
-                sucess=$?
-                if [[ $sucess == "0" ]];then  
-                    SAVEIFS=$IFS && IFS=$'|' && d_input2=($d_input2) ; IFS=$SAVEIFS
-                    newp_1="$(echo ${d_input2[0]} )"
-                    newp_2="$(echo ${d_input2[1]} )"
-                    pass_size=${#newp_1}
-                    if [[ "$newp_1" != "$newp_2" ]];then 
-                        Welcome="Password's Don't Match, Exiting"
-                        DONT_CHANGE_WELCOME=1
-                        return 1
-                    elif [[ "$newp_2" == "" ]];then 
-                        Welcome="Please Enter All Parameters For Changing Password"
-                        DONT_CHANGE_WELCOME=1
-                        return 1
-                    elif [[ $pass_size -lt $PASSWORD_LEN ]];then
-                        Welcome="Password Too Short, Minimum Char $PASSWORD_LEN"
-                        DONT_CHANGE_WELCOME=1
-                        return 1
-                    elif [[ "$newp_2" == "$pass" ]];then 
-                        Welcome="Old and New password can't be same"
-                        DONT_CHANGE_WELCOME=1
-                        return 1
-                    else
-                        if [[ "$is_using_keyfile" == "0" ]];then 
-                            if [[ "$d_input" == "Add Password" ]];then 
-                                echo -n "$pass" | cryptsetup luksAddKey "$FOLDER/$vault_name" -d - <(echo -n "$newp_2")
-                                sucess=$?
-                            else
-                                echo -n "$pass" | cryptsetup luksChangeKey "$FOLDER/$vault_name" -d - <(echo -n "$newp_2")
-                                sucess=$?
-                            fi
+            if [[ "$d_input" == "Disable Keyfile" ]] || [[ "$action_to_take" == "Disable Keyfile" ]];then
+                if [[ "$is_using_default_keyfile" != "" ]];then
+                    zenity --question --title="Vaults" --text="This will disable keyfile use in case AutoOpen fails, if you don't have password added to $vault_name you won't be able to use vault unless you re-enable Keyfile\nThis has nothing to do with Disabling AutoOpening of $vault_name with keyfile" --ok-label="Yes, I UNDERSTAND"
+                    answer=$?
+                else  
+                    zenity --question --title="Vaults" --text="This will disable keyfile, if you don't have password added to $vault_name you won't be able to use vault unless you re-enable Keyfile$prompt_for_this" --ok-label="Yes, I UNDERSTAND"
+                    answer=$?
+                    fi 
+                    if [[ "$answer" == "0" ]];then
+                        if [[ "$is_using_default_keyfile" != "" ]];then
+                            echo $PASS | sudo -E -S sh -c "sed -i \"/^$vault_name/d\" \"$file_for_logging\""
+                            echo $PASS | sudo -E -S sh -c "echo -n \"$vault_name\" >> \"$file_for_logging\""
+                            echo $PASS | sudo -E -S sh -c "echo -n \"p$is_using_default_keyfile\" >> \"$file_for_logging\""
+                            Welcome="Keyfile disabled on $vault_name"
+                            DONT_CHANGE_WELCOME=1
+                            return 0
                         else 
-                            if [[ "$d_input" == "Add Password" ]];then 
-                                is_using_keyfile=0
-                                echo -n "$newp_2" | cryptsetup luksAddKey --key-file "$pass" "$FOLDER/$vault_name" --new-keyfile - 
-                                sucess=$?
-                            else 
-                                is_using_keyfile=0
-                                echo -n "$newp_2" | cryptsetup luksChangeKey "$FOLDER/$vault_name" --key-file "$pass"  - 
-                                sucess=$?
-                            fi
+                            echo $PASS | sudo -E -S sh -c "sed -i \"/^$vault_name/d\" \"$file_for_logging\""
+                            Welcome="Keyfile disabled on $vault_name"
+                            DONT_CHANGE_WELCOME=1
+                            return 0
                         fi 
-                        if [[ $sucess != "0" ]];then
-                            Welcome="Password Couldn't be Changed"
+                    else
+                        Welcome="Cancelled Toggling On Of Keyfile"
+                        DONT_CHANGE_WELCOME=1
+                        return 1 
+                    fi 
+                elif [[ "$d_input" == "Enable Keyfile" ]] || [[ "$action_to_take" == "Enable Keyfile" ]];then
+
+                    if [[ "$is_using_default_keyfile" != "" ]];then
+                        zenity --question --title="Vaults" --text="This will Enable keyfile to asked in prompt if  AutoOpen fails, in case you don't have any other Keyfile added to $vault_name you won't be able to use vault unless you disable Keyfile"
+                        answer=$?
+                    else 
+                        zenity --question --title="Vaults" --text="This will enable keyfile, if you don't have Keyfile added to $vault_name you won't be able to use vault unless you disable Keyfile"
+                        answer=$?
+                        fi 
+                        if [[ "$answer" == "0" ]];then
+                            if [[ "$is_using_default_keyfile" != "" ]];then
+                                echo $PASS | sudo -E -S sh -c "sed -i \"/^$vault_name/d\" \"$file_for_logging\""
+                                echo $PASS | sudo -E -S sh -c "echo -n \"$vault_name\" >> \"$file_for_logging\""
+                                echo $PASS | sudo -E -S sh -c "echo -n \"k$is_using_default_keyfile\" >> \"$file_for_logging\""
+                                Welcome="Keyfile Enabled on $vault_name"
+                                DONT_CHANGE_WELCOME=1
+                                return 0
+                            else 
+                                echo $PASS | sudo -E -S sh -c "echo \"$vault_name\" >> \"$file_for_logging\""
+                                Welcome="Keyfile enabled on $vault_name"
+                                DONT_CHANGE_WELCOME=1
+                                return 0
+                            fi 
+                        else
+                            Welcome="Cancelled Toggling Off of Keyfile"
                             DONT_CHANGE_WELCOME=1
                             return 1
-                        else
-                            Welcome="Password changed for $vault_name"
-                            DONT_CHANGE_WELCOME=1
                         fi 
-                    fi 
-                else
-                    Welcome="Password Change Cancelled"
-                    DONT_CHANGE_WELCOME=1
-                    return 1
-                fi
-            elif [[ "$d_input" == "Add Keyfile" ]] || [[ "$d_input" == "Change Keyfile" ]];then
-                new_key_file=$(zenity --file-selection --title="Choose A New Keyfile for $vault_name")
-                if [[ "$new_key_file" != "" ]]; then 
-                    if [[ "$is_using_keyfile" == "0" ]];then 
-                        if [[ "$d_input" == "Add Keyfile" ]];then 
-                            is_using_keyfile=0
-                            echo -n "$pass" | cryptsetup luksAddKey "$FOLDER/$vault_name" --new-keyfile "$new_key_file" -d - 
-                            sucess=$?
-                        else
-                            #WOULD NEVER EXECUTE EVER, LOGICALLY
-                            echo "Logical error on branch of Add Keyfile with is_using_keyfile=0"
-                            echo -n "$pass" | cryptsetup luksChangeKey "$FOLDER/$vault_name" -d - "$new_key_file" 
-                            sucess=$?
                         fi
-                    else 
-                        if [[ "$d_input" == "Add Keyfile" ]];then 
-                            cryptsetup luksAddKey --key-file "$pass" "$FOLDER/$vault_name" --new-keyfile "$new_key_file"
-                            sucess=$?
-                        else 
-                            cryptsetup luksChangeKey "$FOLDER/$vault_name" --key-file "$pass" "$new_key_file"
-                            sucess=$?
-                        fi
-                    fi
-                    if [[ $sucess != "0" ]];then
-                        Welcome="Keyfile Couldn't be Added for $vault_name"
-                        DONT_CHANGE_WELCOME=1
-                        return 1
-                    else
-                        Welcome="Keyfile added/changed for $vault_name"
-                        DONT_CHANGE_WELCOME=1
-                    fi 
-
-                else
-                    Welcome="$d_input Cancelled for $vault_name"
-
-                fi
-            else 
-                zenity --question --title="Vaults" --text="IF YOU REMOVE YOUR PASSWORD OR KEYFILE, WITHOUT ADDING ANY OTHER PASSWORD/KEYFILE, YOU WILL LOSE ALL DATA, IF YOU UNDERSTAND THIS THEN CLICK OKAY TO PROCEED" --ok-label="OKAY, I UNDERSTAND" --cancel-label="NO, TAKE ME BACK"
-                sucess=$?
-                if [[ "$sucess" == "0" ]];then 
-                    if [[ "$is_using_keyfile" == "0" ]];then 
-                        echo -n "$pass" | cryptsetup luksRemoveKey "$FOLDER/$vault_name" -d -
-                        this_issue="password"
-                    else 
-                        cryptsetup luksRemoveKey "$FOLDER/$vault_name" -d "$pass"
-                        this_issue="Keyfile"
-                    fi
-                    is_using_keyfile=2
-                    Welcome="Your $this_issue for $vault_name has been removed"
-                    DONT_CHANGE_WELCOME=1
-                else
-                    Welcome="$d_input cancelled for $vault_name"
-                    DONT_CHANGE_WELCOME=1
-                    return 1
-                fi 
-                fi
-                if [[ "$is_using_keyfile" != "$is_using_keyfile_bak" ]];then 
-                    if [[ "$is_using_keyfile_bak" == "0" ]];then 
-                        default="Password"
-                        default2="Keyfile"
-                        prompting="Enable Keyfile"
-                    else 
-                        default="Keyfile"
-                        default2="Password"
-                        prompting="Disable Keyfile"
-                    fi 
-                    zenity --question --title="Vaults" --text="You have made changes to your passphrases, Your default method of opening vault is $default, Do you want to change it? \nIf you don't change default you can open Modify Password, section on your vault and Enable/Disable Keyfile usage anytime" --cancel-label="No, Thanks" --ok-label="Change,it to $default2" 
-                    if [[ "$?" == "0" ]];then
-                        modify_password "$vault_name" "$prompting"
-                    fi 
-                fi 
-            }
-            function open {
-                UUID=$(uuidgen)
-                MOUNT_FOLDER_NAME="$VAULTS.data"
-                CALL_BACK_AT=""
-                trap closethis  SIGTERM SIGINT EXIT
-                if [ ! -d "$PIPE"  ];then 
-                    mkdir "$PIPE"  
-                    mkfifo "$PIPE/$VAULTS"
-                    chown -R $USER_I:$USER_I "$FOLDER/pipe"
-                    MOTHER_RAN_ME=0
-                elif [ ! -p "$PIPE/$VAULTS" ];then
-                    mkfifo "$PIPE/$VAULTS"
-                    chown -R $USER_I:$USER_I "$FOLDER/pipe"
-                    MOTHER_RAN_ME=0
-                fi 
-                mkdir "$FOLDER/$MOUNT_FOLDER_NAME"
-                sucess=$?
-                MOUNT_FOLDER_NAME_BAK=$MOUNT_FOLDER_NAME
-                MOUNT_FOLDER_NAME=""
-                eval_sucess_child $sucess "Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"
-                MOUNT_FOLDER_NAME=$MOUNT_FOLDER_NAME_BAK
-                is_using_keyfile=$(cat "$FOLDER/.filevaults" | grep "$VAULTS" | wc -l )
-                sucess=0
-                if [[ "$is_using_keyfile" == "0" ]];then
-                    pass="$(zenity --title="Your Vault = $VAULTS"  --password)"
-                    echo -n $pass | cryptsetup luksOpen "$FOLDER/$VAULTS" "$UUID" - 1> /dev/null
-                    sucess=$?
-                    eval_sucess_child $sucess "Error: Bad password for $VAULTS"
-                else 
-                    pass="$(sudo -u $USER_I zenity --file-selection --title="Select Keyfile for $VAULTS" 2>/dev/null )" 2>/dev/null
-                    sucess=$?
-                    eval_sucess_child $sucess "Error: No keyfile selected for $VAULTS"
-                    if [[ "$pass" != "" ]];then
-                        cryptsetup luksOpen "$FOLDER/$VAULTS" "$UUID" --key-file "$pass" 1> /dev/null
-                        sucess=$?
-                        eval_sucess_child $sucess "Error: Bad keyfile selected for $VAULTS"
-                    else 
-                        sucess=1
-                    fi 
-                fi 
-                mount "/dev/mapper/$UUID" "$FOLDER/$MOUNT_FOLDER_NAME"
-                sucess=$?
-                eval_sucess_child $sucess "Error: Damaged $VAULTS, Needs to be deleted" > "$M_PIPE"
-                chown  $USER_I:$USER_I "$FOLDER/$MOUNT_FOLDER_NAME"
-                (sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null) & disown
-                if [ -p "$M_PIPE" ];then
-                    if [[ "$MOTHER_RAN_ME" == "1" ]];then 
-                        echo okay > "$M_PIPE"
-                    else
-                        zenity --title="Vault Opened" --info --text="Your $VAULTS has been opened"
-                    fi 
-                else
-                    zenity --title="Vault Opened" --info --text="Your $VAULTS has been opened"
-                fi 
-
-                while true; do
-                    echo "IN loop"
-                    read line < "$PIPE/$VAULTS"
-                    if [[ "$line" == "close" ]];then
-                        closethis
-                        exit 0
-                    elif [[ "$line" = close:* ]];then
-                        CALL_BACK_AT=$(echo $line | sed 's/close://g' )
-                        closethis
-                    else 
-                        (sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null) & disown
-                    fi
-                done 
-            }
-
-            function display {
-                echo "Please select what you want to open"
-                A_VAULT=""
-                ERROR_V=""
-                WELCOME_E=""
-                for elem in *.img 
-                do
-                    if [[ "$elem" != "*.img" ]]; then
-                        tem_element=$elem
-                        tem_element=$(echo $tem_element | sed 's/ /a/g')
-                        if ! [[ $tem_element =~ ^[0-9a-zA-Z._-]+$ ]]; then
-                            if [[ "$WELCOME_E" == "" ]];then 
-                                WELCOME_E=$elem
-                            else 
-                                WELCOME_E="$A_VAULT, $elem"
-                            fi 
-                        else
-                            if [[ "$A_VAULT" == "" ]];then 
-                                A_VAULT=$elem
-                            else 
-                                A_VAULT="$A_VAULT|$elem"
-                            fi 
-                        fi 
-                    fi
-                done
-
-                if [[ "$WELCOME_E" != "" ]];then
-                    Welcome="$WELCOME_E have bad name"
-                fi 
-                if [[ "$A_VAULT" == "" ]];then
-                    result=""
-                    if [[ "$WELCOME_E" == "" ]];then
-                        zenity --title="Vaults" --question --text="No Vault Found, Create One?"
-                        result=$?
-                    else 
-                        zenity --title="Vaults" --question --text="$WELCOME_E have bad name\nCheck \"$FOLDER\"\nNo Other Vault Found\nCreate Another Vault?"
-                        result=$?
-                    fi 
-
-                    if [[ "$result" == "0" ]];then 
-                        createvault
-                    else 
-                        close 
-                    fi
-                else 
-                    d_input=$(zenity --title="Vaults"  --text="$Welcome" --forms --add-combo="Action" --combo-values="Open|Close|Rename|Modify Password|Delete|Extend" --add-combo="Choose Vault" --combo-values="$A_VAULT" --show-header --extra-button "Create new" --cancel-label="Exit & Close" --extra-button "Exit & Wait")
-                    returncode=$?
-                    if [[ "$d_input" == "Create new" ]]; then 
-                        createvault
-                    elif [[ "$d_input" == "Exit & Wait" ]];then
-                        dorightthing
-                    elif [[ "$d_input" == "" ]]; then
-                        close 
-                    else  
-                        SAVEIFS=$IFS && IFS=$'|' && d_input=($d_input) ; IFS=$SAVEIFS
-                        action="$(echo ${d_input[0]} | xargs )"
-                        vault_a="$(echo ${d_input[1]} | xargs )"
-                        if [[ $action == "" ]] || [[ "$vault_a" == "" ]];then 
-                            Welcome="Both Action and Vault Name Required"
-                            DONT_CHANGE_WELCOME=1
-                        elif [[ $action == "Open" ]];
-                        then
-                            if [ -p "$PIPE/$vault_a" ];then 
-                                echo open >> "$PIPE/$vault_a"
-                            else 
-                                mkfifo "$PIPE/$vault_a"
-                                echo $PASS | sudo -S "$FILE_E" $USER_I "$vault_a" & disown
-                                dorightthing 1
-                                O_VAULT+=($!)
-                                sleep 2
-                            fi 
-                            if [ -p "$PIPE/$vault_a" ];then 
-                                Welcome="$vault_a has been opened"
+                        if [ -p "$PIPE/$vault_name" ];then 
+                            waitonthis "$vault_a"
+                            has_closed=$?
+                            if [[ $has_closed != "0" ]];then 
+                                Welcome="$vault_a couldn't be closed for $d_input"
                                 DONT_CHANGE_WELCOME="1"
-                            else
-                                Welcome="$vault_a couldn't be opened"
-                                DONT_CHANGE_WELCOME="1"
-                            fi 
-                        elif [[ "$action" == "Close" ]];then
-                            if [ -p "$PIPE/$vault_a" ];then 
-                                waitonthis "$vault_a"
-                                has_closed=$?
-                                if [[ $has_closed == "0" ]];then 
-                                    Welcome="$vault_a has been closed"
-                                    DONT_CHANGE_WELCOME="1"
-                                else
-                                    Welcome="$vault_a couldn't be closed"
-                                    DONT_CHANGE_WELCOME="1"
-                                fi
-                            else
-                                Welcome="$vault_a wasn't opened, Select Open to Open"
-                                DONT_CHANGE_WELCOME="1"
-                            fi 
-                        elif [[ "$action" == "Delete" ]];then
-                            zenity --title="Vaults" --question --text="Are you sure to delete $vault_a?"
-                            response=$?
-                            if [[ "$response" == "1" ]]; then
-                                echo "Deletion cancelled"
-                                Welcome="Vault $vault_a was NOT deleted"
-                                DONT_CHANGE_WELCOME=1
-                            elif [ -p "$PIPE/$vault_a" ];then 
-                                waitonthis "$vault_a"
-                                has_closed=$?
-                                if [[ $has_closed == "0" ]];then 
-                                    rm -rf "$FOLDER/$vault_a"
-                                    Welcome="Vault $vault_a has been deleted"
-                                    DONT_CHANGE_WELCOME=1
-                                else
-                                    Welcome="$vault_a couldn't be closed for deletion"
-                                    DONT_CHANGE_WELCOME="1"
-                                fi
-                            else 
-                                rm -rf "$FOLDER/$vault_a"
-                                Welcome="Vault $vault_a has been deleted"
-                                DONT_CHANGE_WELCOME=1
+                                return 1
                             fi
-                        elif [[ "$action" == "Rename" ]];then
-                            vault_old_name="$(echo $vault_a | sed 's/\.img$//g' )"
-                            newname="$(zenity --entry --entry-text="$vault_old_name" --text="Enter new name" | sed 's/\.img$//g')"
-                            result=$?
-                            if [[ "$result" != "0" ]];then 
-                                Welcome="$vault_a Name Change Was Cancelled"
+                        fi 
+                        UUID=$(uuidgen)
+                        sucess=0
+                        if [[ "$d_input" = Add* ]];then 
+                            prompt="Open Your $vault_name first , to $d_input"
+                        elif [[ "$d_input" = Enable* ]];then 
+                            prompt="Open your vault with any keyfile to $d_input"
+                        elif [[ "$d_input" == "Remove AutoOpen Keyfile" ]];then 
+                            prompt="Open your vault to $d_input"
+                        elif [[ "$d_input" == "Change Keyfile" ]];then 
+                            prompt="Select keyfile to be replaced by new one"
+                        elif [[ "$d_input" == "Change Password" ]];then 
+                            prompt="Enter password to be replaced by new one"
+                        elif [[ "$d_input" == "Remove Password" ]];then 
+                            prompt="Enter password to be REMOVED from $vault_name"
+                        elif [[ "$d_input" == "Remove Password" ]];then 
+                            prompt="Select Keyfile to be REMOVED from $vault_name"
+                        fi 
+                        if [[ "$is_using_keyfile" == "0" ]];then
+                            pass="$(zenity --title="$prompt"  --password)"
+                            sucess=$?
+                            Welcome="You Cancelled $d_input for $vault_name"
+                            Welcome2="You entered wrong password for $vault_name"
+                            echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup luksOpen \"$FOLDER/$vault_name\" \"$UUID\" -d -"
+                        else 
+                            pass="$(zenity --file-selection --title="$prompt" 2>/dev/null )"
+                            sucess=$?
+                            Welcome="You Cancelled $d_input for $vault_name"
+                            Welcome2="You selected wrong keyfile for $vault_name"
+                            echo $PASS | sudo -E -S sh -c "cryptsetup luksOpen \"$FOLDER/$vault_name\" \"$UUID\" --key-file \"$pass\""
+                        fi
+
+                        if [[ "$sucess" != "0" ]];then
+                            DONT_CHANGE_WELCOME=1
+                            return 1
+                        fi 
+                        echo $PASS | sudo -E -S sh -c "cryptsetup luksClose  \"$UUID\" "
+                        sucess=$?
+                        if [[ "$sucess" != "0" ]];then
+                            Welcome=$Welcome2
+                            DONT_CHANGE_WELCOME=1
+                            return 1
+                        fi
+                        if [[ "$d_input" = Enable* ]];then
+                            zenity --question --title="Vaults" --text="This will cause your $vault_name to Auto Open when $pass is present at that location" --ok-label="AutoOpen my Vault" --cancel-label="Don\'t Auto Open"
+                            sucess=$?
+                            if [[ $sucess == "0" ]];then 
+                                char="p"
+                                zenity --question --title="Vaults" --text="In absence of default keyfile, What do you want to use?" --cancel-label="Use Password(Default)" --ok-label="Use Another Keyfile"
+                                sucess=$?
+
+                                if [[ $sucess == "0" ]];then 
+                                    char="k"
+                                fi 
+                                Welcome="Enabled $d_input"
                                 DONT_CHANGE_WELCOME=1
-                            else 
-                                newname_spaceless="$(echo $newname | sed 's/ //g')"
-                                if ! [[ $newname_spaceless =~ ^[0-9a-zA-Z._-]+$ ]]; then
-                                    Welcome="$newname Has invalid characters, Name Change Cancelled"
+                                echo $PASS | sudo -E -S sh -c "sed -i \"/^$vault_name/d\" \"$file_for_logging\""
+                                echo $PASS | sudo -E -S sh -c "echo -n \"$vault_name\" >> \"$file_for_logging\""
+                                echo $PASS | sudo -E -S sh -c "echo  \"$char$pass\" >> \"$file_for_logging\""
+                                return 0
+                            else
+                                Welcome="Cancelled $d_input"
+                                DONT_CHANGE_WELCOME=1
+                                return 1
+                            fi 
+                        elif [[ "$d_input" == "Remove AutoOpen Keyfile" ]];then 
+                            zenity --question --title="Vaults" --text="This will cause your $vault_name to not AutoOpen if $is_using_default_keyfile is present" --ok-label="Remove Auto Opening of my Vault" --cancel-label="Keep Auto Open"
+                            sucess=$?
+                            if [[ $sucess == "0" ]];then
+                                echo $PASS | sudo -E -S sh -c "sed -i \"/^$vault_name/d\" \"$file_for_logging\""
+                                zenity --question --title="Vaults" --text="Default keyfile removed, What do you want to use for Vault Opening?" --cancel-label="Use Password(Default)" --ok-label="Use Another Keyfile"
+                                sucess=$?
+                                Welcome="Default Open Method for $vault_name is Password"
                                     DONT_CHANGE_WELCOME=1
+                                if [[ $sucess == "0" ]];then 
+                                    Welcome="Default open method for $d_input is Keyfile"
+                                    echo $PASS | sudo -E -S sh -c "echo \"$vault_name\" >> \"$file_for_logging\""
+                                fi
+                            else 
+                                return 1
+                            fi 
+                        elif [[ "$d_input" == "Add Password" ]] || [[ "$d_input" == "Change Password" ]];then
+                            d_input2="$(zenity --forms --title="Vaults" --text="New password for $vault_name" --add-password="New Password" --add-password="Verify New Password")"
+                            sucess=$?
+                            if [[ $sucess == "0" ]];then  
+                                SAVEIFS=$IFS && IFS=$'|' && d_input2=($d_input2) ; IFS=$SAVEIFS
+                                newp_1="$(echo ${d_input2[0]} )"
+                                newp_2="$(echo ${d_input2[1]} )"
+                                pass_size=${#newp_1}
+                                if [[ "$newp_1" != "$newp_2" ]];then 
+                                    Welcome="Password's Don't Match, Exiting"
+                                    DONT_CHANGE_WELCOME=1
+                                    return 1
+                                elif [[ "$newp_2" == "" ]];then 
+                                    Welcome="Please Enter All Parameters For Changing Password"
+                                    DONT_CHANGE_WELCOME=1
+                                    return 1
+                                elif [[ $pass_size -lt $PASSWORD_LEN ]];then
+                                    Welcome="Password Too Short, Minimum Char $PASSWORD_LEN"
+                                    DONT_CHANGE_WELCOME=1
+                                    return 1
+                                elif [[ "$newp_2" == "$pass" ]];then 
+                                    Welcome="Old and New password can't be same"
+                                    DONT_CHANGE_WELCOME=1
+                                    return 1
                                 else
-                                    newname="$newname.img"
-                                    if [ -p "$PIPE/$vault_a" ];then 
-                                        waitonthis "$vault_a"
-                                        has_closed=$?
-                                        if [[ $has_closed == "0" ]];then 
-                                            mv "$FOLDER/$vault_a" "$FOLDER/$newname"
-                                            result=$?
-                                            if [[ "$result" != "0" ]];then 
-                                                Welcome="$vault_a Name Couldn't be changed"
-                                                DONT_CHANGE_WELCOME=1
-                                            else
-                                                Welcome="$vault_a Name Changed to $newname"
-                                                DONT_CHANGE_WELCOME=1
-                                            fi 
+                                    if [[ "$is_using_keyfile" == "0" ]];then 
+                                        if [[ "$d_input" == "Add Password" ]];then 
+                                            echo -n "$pass" | cryptsetup luksAddKey "$FOLDER/$vault_name" -d - <(echo -n "$newp_2")
+                                            sucess=$?
                                         else
-                                            Welcome="$vault_a couldn't be closed for Renaming"
-                                            DONT_CHANGE_WELCOME="1"
+                                            echo -n "$pass" | cryptsetup luksChangeKey "$FOLDER/$vault_name" -d - <(echo -n "$newp_2")
+                                            sucess=$?
                                         fi
+                                    else 
+                                        if [[ "$d_input" == "Add Password" ]];then 
+                                            is_using_keyfile=0
+                                            echo -n "$newp_2" | cryptsetup luksAddKey --key-file "$pass" "$FOLDER/$vault_name" --new-keyfile - 
+                                            sucess=$?
+                                        else 
+                                            is_using_keyfile=0
+                                            echo -n "$newp_2" | cryptsetup luksChangeKey "$FOLDER/$vault_name" --key-file "$pass"  - 
+                                            sucess=$?
+                                        fi
+                                    fi 
+                                    if [[ $sucess != "0" ]];then
+                                        Welcome="Password Couldn't be Changed"
+                                        DONT_CHANGE_WELCOME=1
+                                        return 1
                                     else
-                                        mv "$FOLDER/$vault_a" "$FOLDER/$newname"
-                                        result=$?
-                                        if [[ "$result" != "0" ]];then 
-                                            Welcome="$vault_a Name Couldn't be changed"
-                                            DONT_CHANGE_WELCOME=1
-                                        else
-                                            Welcome="$vault_a Name Changed to $newname"
-                                            DONT_CHANGE_WELCOME=1
-                                        fi 
+                                        Welcome="Password changed for $vault_name"
+                                        DONT_CHANGE_WELCOME=1
                                     fi 
                                 fi 
+                            else
+                                Welcome="Password Change Cancelled"
+                                DONT_CHANGE_WELCOME=1
+                                return 1
                             fi
-                        elif [[ "$action" == "Extend" ]];then
-                            sizern=$(du --apparent-size "$vault_a" | sed -e "s/$vault_a//g")
-                            olds=$(( $sizern / 1024 / 1024 ))
-                            echo Current Size "$olds"G
-                            news=$(zenity --scale  --text="Choose new Size in GB" --min-value=$olds --value=$olds --max-value=$MAX_VAULT_SIZE  --step=2)
-                            sucess=$?
-                            has_closed=0
-                            if [ -p "$PIPE/$vault_a" ];then 
-                                waitonthis "$vault_a"
-                                has_closed=$?
-                            fi 
-                            echo $news
-                            if [[ "$has_closed" != "0" ]];then
-                                Welcome="Couldn't close $vault_a for Resizing"
-                                DONT_CHANGE_WELCOME=1
-                            elif [[ "$news" == "$olds" ]];then 
-                                zenity --title="Vaults" --info --text="Old Size is equal to new size, Exiting"
-                                Welcome="Enter a different size for $vault_a"
-                                DONT_CHANGE_WELCOME=1
-                            elif [[ "$sucess" != "0" ]]; then
-                                Welcome="Extending $vault_a was cancelled"
-                                DONT_CHANGE_WELCOME=1
-                            else 
-                                pass="$(zenity  --title="Opening $vault_a" --text="Please enter password for $vault_a" --password)"
-                                UUID=$(uuidgen)
-                                echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup luksOpen \"$FOLDER/$vault_a\" \"$UUID\" -d -"
-                                sucess=$?
-                                if [[ "$sucess" != "0" ]];then 
-                                    zenity --title="Vaults" --info --text="You entered wrong password"
+                        elif [[ "$d_input" == "Add Keyfile" ]] || [[ "$d_input" == "Change Keyfile" ]];then
+                            new_key_file=$(zenity --file-selection --title="Choose A New Keyfile for $vault_name")
+                            if [[ "$new_key_file" != "" ]]; then 
+                                if [[ "$is_using_keyfile" == "0" ]];then 
+                                    if [[ "$d_input" == "Add Keyfile" ]];then 
+                                        is_using_keyfile=0
+                                        echo -n "$pass" | cryptsetup luksAddKey "$FOLDER/$vault_name" --new-keyfile "$new_key_file" -d - 
+                                        sucess=$?
+                                    else
+                                        #WOULD NEVER EXECUTE EVER, LOGICALLY
+                                        echo "Logical error on branch of Add Keyfile with is_using_keyfile=0"
+                                        echo -n "$pass" | cryptsetup luksChangeKey "$FOLDER/$vault_name" -d - "$new_key_file" 
+                                        sucess=$?
+                                    fi
+                                else 
+                                    if [[ "$d_input" == "Add Keyfile" ]];then 
+                                        cryptsetup luksAddKey --key-file "$pass" "$FOLDER/$vault_name" --new-keyfile "$new_key_file"
+                                        sucess=$?
+                                    else 
+                                        cryptsetup luksChangeKey "$FOLDER/$vault_name" --key-file "$pass" "$new_key_file"
+                                        sucess=$?
+                                    fi
+                                fi
+                                if [[ $sucess != "0" ]];then
+                                    Welcome="Keyfile Couldn't be Added for $vault_name"
+                                    DONT_CHANGE_WELCOME=1
+                                    return 1
                                 else
+                                    Welcome="Keyfile added/changed for $vault_name"
+                                    DONT_CHANGE_WELCOME=1
+                                fi 
 
-                                    NID=$(notify-send -p "First Closing Up Everything")
-                                    echo $PASS | sudo -S  cryptsetup luksClose "$UUID"
-                                    echo 20
-                                    dd if=/dev/zero of="$vault_a" bs=1 count=0 seek="$news"G
-                                    NID=$(notify-send  -r $NID -p "Opening and Trying to Resize")
-                                    echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup luksOpen \"$FOLDER/$vault_a\" \"$UUID\" -d -"
-                                    echo 40
-                                    echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup resize  \"$UUID\" -d -"
-                                    echo 60
-                                    NID=$(notify-send  -r $NID -p "Resizing Filesystem")
-                                    echo $PASS | sudo -E -S e2fsck -fy  /dev/mapper/$UUID
-                                    echo 80
-                                    echo $PASS | sudo -E -S resize2fs  /dev/mapper/$UUID
-                                    NID=$(notify-send  -r $NID -p "Wrapping UP")
-                                    echo $PASS | sudo -S  cryptsetup luksClose "$UUID"
-                                    echo 100
+                            else
+                                Welcome="$d_input Cancelled for $vault_name"
+
+                            fi
+                        else 
+                            zenity --question --title="Vaults" --text="IF YOU REMOVE YOUR PASSWORD OR KEYFILE, WITHOUT ADDING ANY OTHER PASSWORD/KEYFILE, YOU WILL LOSE ALL DATA, IF YOU UNDERSTAND THIS THEN CLICK OKAY TO PROCEED" --ok-label="OKAY, I UNDERSTAND" --cancel-label="NO, TAKE ME BACK"
+                            sucess=$?
+                            if [[ "$sucess" == "0" ]];then 
+                                if [[ "$is_using_keyfile" == "0" ]];then 
+                                    echo -n "$pass" | cryptsetup luksRemoveKey "$FOLDER/$vault_name" -d -
+                                    this_issue="password"
+                                else 
+                                    cryptsetup luksRemoveKey "$FOLDER/$vault_name" -d "$pass"
+                                    this_issue="Keyfile"
+                                fi
+                                is_using_keyfile=2
+                                Welcome="Your $this_issue for $vault_name has been removed"
+                                DONT_CHANGE_WELCOME=1
+                            else
+                                Welcome="$d_input cancelled for $vault_name"
+                                DONT_CHANGE_WELCOME=1
+                                return 1
+                            fi 
+                            fi
+                            if [[ "$is_using_keyfile" != "$is_using_keyfile_bak" ]];then 
+                                if [[ "$is_using_keyfile_bak" == "0" ]];then 
+                                    default="Password"
+                                    default2="Keyfile"
+                                    prompting="Enable Keyfile"
+                                else 
+                                    default="Keyfile"
+                                    default2="Password"
+                                    prompting="Disable Keyfile"
+                                fi 
+                                zenity --question --title="Vaults" --text="You have made changes to your passphrases, Your default method of opening vault is $default, Do you want to change it? \nIf you don't change default you can open Modify Password, section on your vault and Enable/Disable Keyfile usage anytime" --cancel-label="No, Thanks" --ok-label="Change,it to $default2" 
+                                if [[ "$?" == "0" ]];then
+                                    modify_password "$vault_name" "$prompting"
+                                fi 
+                            fi 
+                        }
+                        function open {
+                            UUID=$(uuidgen)
+                            MOUNT_FOLDER_NAME="$VAULTS.data"
+                            CALL_BACK_AT=""
+                            trap closethis  SIGTERM SIGINT EXIT
+                            if [ ! -d "$PIPE"  ];then 
+                                mkdir "$PIPE"  
+                                mkfifo "$PIPE/$VAULTS"
+                                chown -R $USER_I:$USER_I "$FOLDER/pipe"
+                                MOTHER_RAN_ME=0
+                            elif [ ! -p "$PIPE/$VAULTS" ];then
+                                mkfifo "$PIPE/$VAULTS"
+                                chown -R $USER_I:$USER_I "$FOLDER/pipe"
+                                MOTHER_RAN_ME=0
+                            fi 
+                            mkdir "$FOLDER/$MOUNT_FOLDER_NAME"
+                            sucess=$?
+                            MOUNT_FOLDER_NAME_BAK=$MOUNT_FOLDER_NAME
+                            MOUNT_FOLDER_NAME=""
+                            eval_sucess_child $sucess "Error: Couldn't create Folder $FOLDER/$MOUNT_FOLDER_NAME"
+                            MOUNT_FOLDER_NAME=$MOUNT_FOLDER_NAME_BAK
+                            is_using_keyfile=$(cat "$FOLDER/.filevaults" | grep "$VAULTS" )
+                            is_using_default_keyfile="$(echo $is_using_keyfile| sed "s/^$VAULTS//g" | xargs)"
+                            mode_to_work=${is_using_default_keyfile:0:1}
+                            is_using_default_keyfile=${is_using_default_keyfile:1}
+                            if [[ "$mode_to_work" == "" ]] && [[ "$is_using_keyfile" != "" ]];then
+                                is_using_keyfile=1
+                            elif [[ "$mode_to_work" == "p" ]];then 
+                                is_using_keyfile=0
+                            elif [[ "$mode_to_work" == "k" ]];then 
+                                is_using_keyfile=1
+                            else 
+                                is_using_keyfile=0
+                            fi
+                            sucess=1
+                            if [[ -f "$is_using_default_keyfile" ]];then 
+                                cryptsetup luksOpen "$FOLDER/$VAULTS" "$UUID" --key-file "$is_using_default_keyfile" 1> /dev/null
+                                sucess=$? 
+                                if [[ "$sucess" != "0" ]];then 
+                                    sudo -u $USER_I zenity --info --text="Corrupted Default Keyfile, Falling back" --timeout=3
+                                fi 
+                            elif [[ "$is_using_default_keyfile" != "" ]];then 
+                                sudo -u $USER_I zenity --info --text="Default Keyfile Not Found, Falling back" --timeout=3
+                                sucess=1
+                            fi 
+
+                            if [[ "$is_using_keyfile" == "0" ]] && [[ "$sucess" != "0" ]];then
+                                pass="$(zenity --title="Your Vault = $VAULTS"  --password)"
+                                echo -n $pass | cryptsetup luksOpen "$FOLDER/$VAULTS" "$UUID" - 1> /dev/null
+                                sucess=$?
+                                eval_sucess_child $sucess "Error: Bad password for $VAULTS"
+                            elif [[ "$sucess" != "0" ]];then 
+                                pass="$(sudo -u $USER_I zenity --file-selection --title="Select Keyfile for $VAULTS" 2>/dev/null )" 2>/dev/null
+                                sucess=$?
+                                eval_sucess_child $sucess "Error: No keyfile selected for $VAULTS"
+                                if [[ "$pass" != "" ]];then
+                                    cryptsetup luksOpen "$FOLDER/$VAULTS" "$UUID" --key-file "$pass" 1> /dev/null
+                                    sucess=$?
+                                    eval_sucess_child $sucess "Error: Bad keyfile selected for $VAULTS"
+                                else 
+                                    sucess=1
+                                fi 
+                            fi 
+                            mount "/dev/mapper/$UUID" "$FOLDER/$MOUNT_FOLDER_NAME"
+                            sucess=$?
+                            eval_sucess_child $sucess "Error: Damaged $VAULTS, Needs to be deleted" > "$M_PIPE"
+                            chown  $USER_I:$USER_I "$FOLDER/$MOUNT_FOLDER_NAME"
+                            (sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null) & disown
+                            if [ -p "$M_PIPE" ];then
+                                if [[ "$MOTHER_RAN_ME" == "1" ]];then 
+                                    echo okay > "$M_PIPE"
+                                else
+                                    zenity --title="Vault Opened" --info --text="Your $VAULTS has been opened"
+                                fi 
+                            else
+                                zenity --title="Vault Opened" --info --text="Your $VAULTS has been opened"
+                            fi 
+
+                            while true; do
+                                echo "IN loop"
+                                read line < "$PIPE/$VAULTS"
+                                if [[ "$line" == "close" ]];then
+                                    closethis
+                                    exit 0
+                                elif [[ "$line" = close:* ]];then
+                                    CALL_BACK_AT=$(echo $line | sed 's/close://g' )
+                                    closethis
+                                else 
+                                    (sudo -u $USER_I xdg-open "$FOLDER/$MOUNT_FOLDER_NAME" &>/dev/null) & disown
+                                fi
+                            done 
+                        }
+
+                        function display {
+                            echo "Please select what you want to open"
+                            A_VAULT=""
+                            ERROR_V=""
+                            WELCOME_E=""
+                            for elem in *.img 
+                            do
+                                if [[ "$elem" != "*.img" ]]; then
+                                    tem_element=$elem
+                                    tem_element=$(echo $tem_element | sed 's/ /a/g')
+                                    if ! [[ $tem_element =~ ^[0-9a-zA-Z._-]+$ ]]; then
+                                        if [[ "$WELCOME_E" == "" ]];then 
+                                            WELCOME_E=$elem
+                                        else 
+                                            WELCOME_E="$A_VAULT, $elem"
+                                        fi 
+                                    else
+                                        if [[ "$A_VAULT" == "" ]];then 
+                                            A_VAULT=$elem
+                                        else 
+                                            A_VAULT="$A_VAULT|$elem"
+                                        fi 
                                     fi 
                                 fi
-                            elif [[ "$action" == "Modify Password" ]];then
-                                modify_password "$vault_a"   
+                            done
+
+                            if [[ "$WELCOME_E" != "" ]];then
+                                Welcome="$WELCOME_E have bad name"
+                            fi 
+                            if [[ "$A_VAULT" == "" ]];then
+                                result=""
+                                if [[ "$WELCOME_E" == "" ]];then
+                                    zenity --title="Vaults" --question --text="No Vault Found, Create One?"
+                                    result=$?
+                                else 
+                                    zenity --title="Vaults" --question --text="$WELCOME_E have bad name\nCheck \"$FOLDER\"\nNo Other Vault Found\nCreate Another Vault?"
+                                    result=$?
+                                fi 
+
+                                if [[ "$result" == "0" ]];then 
+                                    createvault
+                                else 
+                                    close 
+                                fi
                             else 
-                                dorightthing
-                            fi
+                                d_input=$(zenity --title="Vaults"  --text="$Welcome" --forms --add-combo="Action" --combo-values="Open|Close|Rename|Modify Password|Delete|Extend" --add-combo="Choose Vault" --combo-values="$A_VAULT" --show-header --extra-button "Create new" --cancel-label="Exit & Close" --extra-button "Exit & Wait")
+                                returncode=$?
+                                if [[ "$d_input" == "Create new" ]]; then 
+                                    createvault
+                                elif [[ "$d_input" == "Exit & Wait" ]];then
+                                    dorightthing
+                                elif [[ "$d_input" == "" ]]; then
+                                    close 
+                                else  
+                                    SAVEIFS=$IFS && IFS=$'|' && d_input=($d_input) ; IFS=$SAVEIFS
+                                    action="$(echo ${d_input[0]} | xargs )"
+                                    vault_a="$(echo ${d_input[1]} | xargs )"
+                                    if [[ $action == "" ]] || [[ "$vault_a" == "" ]];then 
+                                        Welcome="Both Action and Vault Name Required"
+                                        DONT_CHANGE_WELCOME=1
+                                    elif [[ $action == "Open" ]];
+                                    then
+                                        if [ -p "$PIPE/$vault_a" ];then 
+                                            echo open >> "$PIPE/$vault_a"
+                                        else 
+                                            mkfifo "$PIPE/$vault_a"
+                                            echo $PASS | sudo -S "$FILE_E" $USER_I "$vault_a" & disown
+                                            dorightthing 1
+                                            O_VAULT+=($!)
+                                            sleep 2
+                                        fi 
+                                        if [ -p "$PIPE/$vault_a" ];then 
+                                            Welcome="$vault_a has been opened"
+                                            DONT_CHANGE_WELCOME="1"
+                                        else
+                                            Welcome="$vault_a couldn't be opened"
+                                            DONT_CHANGE_WELCOME="1"
+                                        fi 
+                                    elif [[ "$action" == "Close" ]];then
+                                        if [ -p "$PIPE/$vault_a" ];then 
+                                            waitonthis "$vault_a"
+                                            has_closed=$?
+                                            if [[ $has_closed == "0" ]];then 
+                                                Welcome="$vault_a has been closed"
+                                                DONT_CHANGE_WELCOME="1"
+                                            else
+                                                Welcome="$vault_a couldn't be closed"
+                                                DONT_CHANGE_WELCOME="1"
+                                            fi
+                                        else
+                                            Welcome="$vault_a wasn't opened, Select Open to Open"
+                                            DONT_CHANGE_WELCOME="1"
+                                        fi 
+                                    elif [[ "$action" == "Delete" ]];then
+                                        zenity --title="Vaults" --question --text="Are you sure to delete $vault_a?"
+                                        response=$?
+                                        if [[ "$response" == "1" ]]; then
+                                            echo "Deletion cancelled"
+                                            Welcome="Vault $vault_a was NOT deleted"
+                                            DONT_CHANGE_WELCOME=1
+                                        elif [ -p "$PIPE/$vault_a" ];then 
+                                            waitonthis "$vault_a"
+                                            has_closed=$?
+                                            if [[ $has_closed == "0" ]];then 
+                                                rm -rf "$FOLDER/$vault_a"
+                                                Welcome="Vault $vault_a has been deleted"
+                                                DONT_CHANGE_WELCOME=1
+                                            else
+                                                Welcome="$vault_a couldn't be closed for deletion"
+                                                DONT_CHANGE_WELCOME="1"
+                                            fi
+                                        else 
+                                            rm -rf "$FOLDER/$vault_a"
+                                            Welcome="Vault $vault_a has been deleted"
+                                            DONT_CHANGE_WELCOME=1
+                                        fi
+                                    elif [[ "$action" == "Rename" ]];then
+                                        vault_old_name="$(echo $vault_a | sed 's/\.img$//g' )"
+                                        newname="$(zenity --entry --entry-text="$vault_old_name" --text="Enter new name" | sed 's/\.img$//g')"
+                                        result=$?
+                                        if [[ "$result" != "0" ]];then 
+                                            Welcome="$vault_a Name Change Was Cancelled"
+                                            DONT_CHANGE_WELCOME=1
+                                        else 
+                                            newname_spaceless="$(echo $newname | sed 's/ //g')"
+                                            if ! [[ $newname_spaceless =~ ^[0-9a-zA-Z._-]+$ ]]; then
+                                                Welcome="$newname Has invalid characters, Name Change Cancelled"
+                                                DONT_CHANGE_WELCOME=1
+                                            else
+                                                newname="$newname.img"
+                                                if [ -p "$PIPE/$vault_a" ];then 
+                                                    waitonthis "$vault_a"
+                                                    has_closed=$?
+                                                    if [[ $has_closed == "0" ]];then 
+                                                        mv "$FOLDER/$vault_a" "$FOLDER/$newname"
+                                                        result=$?
+                                                        if [[ "$result" != "0" ]];then 
+                                                            Welcome="$vault_a Name Couldn't be changed"
+                                                            DONT_CHANGE_WELCOME=1
+                                                        else
+                                                            Welcome="$vault_a Name Changed to $newname"
+                                                            DONT_CHANGE_WELCOME=1
+                                                        fi 
+                                                    else
+                                                        Welcome="$vault_a couldn't be closed for Renaming"
+                                                        DONT_CHANGE_WELCOME="1"
+                                                    fi
+                                                else
+                                                    mv "$FOLDER/$vault_a" "$FOLDER/$newname"
+                                                    result=$?
+                                                    if [[ "$result" != "0" ]];then 
+                                                        Welcome="$vault_a Name Couldn't be changed"
+                                                        DONT_CHANGE_WELCOME=1
+                                                    else
+                                                        Welcome="$vault_a Name Changed to $newname"
+                                                        DONT_CHANGE_WELCOME=1
+                                                    fi 
+                                                fi 
+                                            fi 
+                                        fi
+                                    elif [[ "$action" == "Extend" ]];then
+                                        sizern=$(du --apparent-size "$vault_a" | sed -e "s/$vault_a//g")
+                                        olds=$(( $sizern / 1024 / 1024 ))
+                                        echo Current Size "$olds"G
+                                        news=$(zenity --scale  --text="Choose new Size in GB" --min-value=$olds --value=$olds --max-value=$MAX_VAULT_SIZE  --step=2)
+                                        sucess=$?
+                                        has_closed=0
+                                        if [ -p "$PIPE/$vault_a" ];then 
+                                            waitonthis "$vault_a"
+                                            has_closed=$?
+                                        fi 
+                                        echo $news
+                                        if [[ "$has_closed" != "0" ]];then
+                                            Welcome="Couldn't close $vault_a for Resizing"
+                                            DONT_CHANGE_WELCOME=1
+                                        elif [[ "$news" == "$olds" ]];then 
+                                            zenity --title="Vaults" --info --text="Old Size is equal to new size, Exiting"
+                                            Welcome="Enter a different size for $vault_a"
+                                            DONT_CHANGE_WELCOME=1
+                                        elif [[ "$sucess" != "0" ]]; then
+                                            Welcome="Extending $vault_a was cancelled"
+                                            DONT_CHANGE_WELCOME=1
+                                        else 
+                                            pass="$(zenity  --title="Opening $vault_a" --text="Please enter password for $vault_a" --password)"
+                                            UUID=$(uuidgen)
+                                            echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup luksOpen \"$FOLDER/$vault_a\" \"$UUID\" -d -"
+                                            sucess=$?
+                                            if [[ "$sucess" != "0" ]];then 
+                                                zenity --title="Vaults" --info --text="You entered wrong password"
+                                            else
 
-                        fi
-                        if [[ "$DONT_CHANGE_WELCOME" != "0" ]] ; then 
-                            DONT_CHANGE_WELCOME=0
-                        elif [[ "$Welcome" != "" ]];then 
-                            Welcome="Choose Another Action or Exit"
-                        fi
-                    fi
+                                                NID=$(notify-send -p "First Closing Up Everything")
+                                                echo $PASS | sudo -S  cryptsetup luksClose "$UUID"
+                                                echo 20
+                                                dd if=/dev/zero of="$vault_a" bs=1 count=0 seek="$news"G
+                                                NID=$(notify-send  -r $NID -p "Opening and Trying to Resize")
+                                                echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup luksOpen \"$FOLDER/$vault_a\" \"$UUID\" -d -"
+                                                echo 40
+                                                echo $PASS | sudo -E -S sh -c "echo -n $pass | cryptsetup resize  \"$UUID\" -d -"
+                                                echo 60
+                                                NID=$(notify-send  -r $NID -p "Resizing Filesystem")
+                                                echo $PASS | sudo -E -S e2fsck -fy  /dev/mapper/$UUID
+                                                echo 80
+                                                echo $PASS | sudo -E -S resize2fs  /dev/mapper/$UUID
+                                                NID=$(notify-send  -r $NID -p "Wrapping UP")
+                                                echo $PASS | sudo -S  cryptsetup luksClose "$UUID"
+                                                echo 100
+                                                fi 
+                                            fi
+                                        elif [[ "$action" == "Modify Password" ]];then
+                                            modify_password "$vault_a"   
+                                        else 
+                                            dorightthing
+                                        fi
 
-                }
+                                    fi
+                                    if [[ "$DONT_CHANGE_WELCOME" != "0" ]] ; then 
+                                        DONT_CHANGE_WELCOME=0
+                                    elif [[ "$Welcome" != "" ]];then 
+                                        Welcome="Choose Another Action or Exit"
+                                    fi
+                                fi
 
-                if [ $UID -eq 0 ];then
-                    USER_I=$1
-                    VAULTS=$2
-                    FOLDER="/home/$USER_I/$VAULT_FOLDER"
-                    PIPE="$FOLDER/pipe"
-                    M_PIPE="$FOLDER/pipe/m_pipe"
-                    MOTHER_RAN_ME=1
-                    if [ $1 == 0 ];then 
-                        exit 1
-                    fi
-                    echo "Opening vault"
-                    open
-                    echo "Done opening vault"
-                    exit 0
-                fi
-                trap close  SIGTERM SIGINT EXIT
-                if [[ ! -d $FOLDER ]];then
-                    if [ $UID -eq 0 ];then 
-                        echo "Run this as user, not root"
-                    fi 
-                    echo "Taking it as a new installation"
-                    echo "Creating new folder $FOLDER"
-                    echo "This will be location of your vaults"
-                    if [[ "$PASS" == "" ]];
-                    then 
-                        PASS="$(zenity  --title="Please enter your sudo password"  --password)"
-                    fi
-                    echo $PASS | sudo -S echo "Checking if sudo password is correct"
-                    result=$?
-                    if [[ "$result" != "0" ]];then 
-                        zenity --title="Vault" --warning --text="Wrong Sudo Password Was Entered, Exiting"
-                        exit 0
-                    fi 
+                            }
 
-                    newinstall
-                    fi
-                    O_VAULT=()
-                    mkdir "$PIPE"
-                    mkfifo "$M_PIPE"
-                    cd "$FOLDER"
-                    echo "Welcome to your vaults"
-                    Welcome=""
-                    while true; do
-                        if [[ "$Welcome" == "" ]];
-                        then
-                            Welcome="Welcome to vaults"
-                        fi
-                        if [[ "$PASS" == "" ]];
-                        then 
-                            PASS="$(zenity  --title="Please enter your sudo password"  --password)"
-                            echo $PASS | sudo -S echo "Checking if sudo password is correct"
-                            result=$?
-                            if [[ "$result" != "0" ]];then 
-                                zenity --title="Vault" --warning --text="Wrong Sudo Password Was Entered, Exiting"
+                            if [ $UID -eq 0 ];then
+                                USER_I=$1
+                                VAULTS=$2
+                                FOLDER="/home/$USER_I/$VAULT_FOLDER"
+                                PIPE="$FOLDER/pipe"
+                                M_PIPE="$FOLDER/pipe/m_pipe"
+                                MOTHER_RAN_ME=1
+                                if [ $1 == 0 ];then 
+                                    exit 1
+                                fi
+                                echo "Opening vault"
+                                open
+                                echo "Done opening vault"
                                 exit 0
                             fi
-                            if [[ ! -f "$FOLDER/.filevaults" ]];then 
-                                echo $PASS | sudo -S touch "$FOLDER/.filevaults"
-                                echo $PASS | sudo -S chmod 600 "$FOLDER/.filevaults"
-                            fi
-                            fi
-                            display
-                        done 
+                            trap close  SIGTERM SIGINT EXIT
+                            if [[ ! -d $FOLDER ]];then
+                                if [ $UID -eq 0 ];then 
+                                    echo "Run this as user, not root"
+                                fi 
+                                echo "Taking it as a new installation"
+                                echo "Creating new folder $FOLDER"
+                                echo "This will be location of your vaults"
+                                if [[ "$PASS" == "" ]];
+                                then 
+                                    PASS="$(zenity  --title="Please enter your sudo password"  --password)"
+                                fi
+                                echo $PASS | sudo -S echo "Checking if sudo password is correct"
+                                result=$?
+                                if [[ "$result" != "0" ]];then 
+                                    zenity --title="Vault" --warning --text="Wrong Sudo Password Was Entered, Exiting"
+                                    exit 0
+                                fi 
+
+                                newinstall
+                                fi
+                                O_VAULT=()
+                                mkdir "$PIPE"
+                                mkfifo "$M_PIPE"
+                                cd "$FOLDER"
+                                echo "Welcome to your vaults"
+                                Welcome=""
+                                while true; do
+                                    if [[ "$Welcome" == "" ]];
+                                    then
+                                        Welcome="Welcome to vaults"
+                                    fi
+                                    if [[ "$PASS" == "" ]];
+                                    then 
+                                        PASS="$(zenity  --title="Please enter your sudo password"  --password)"
+                                        echo $PASS | sudo -S echo "Checking if sudo password is correct"
+                                        result=$?
+                                        if [[ "$result" != "0" ]];then 
+                                            zenity --title="Vault" --warning --text="Wrong Sudo Password Was Entered, Exiting"
+                                            exit 0
+                                        fi
+                                        if [[ ! -f "$FOLDER/.filevaults" ]];then 
+                                            echo $PASS | sudo -S touch "$FOLDER/.filevaults"
+                                            echo $PASS | sudo -S chmod 600 "$FOLDER/.filevaults"
+                                        fi
+                                        fi
+                                        display
+                                    done 
