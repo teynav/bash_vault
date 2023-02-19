@@ -71,11 +71,40 @@ There is nothing to configure as of now except
       Asks for user to select a keyfile and mount vault in **VAULT_FOLDER/VAULT_NAME.data**, and then xdg-open it 
 2. Close -> If vault is open then close it 
 3. Rename -> Rename Your vault
-4. Modify Passowrd -> It deserve a section of it's own
+4. Modify Passowrd -> [It deserve a section of it's own](#-understanding-modify-password)
 5. Delete -> Close vault if opened and then proceed to delete it 
 6. Extend -> Show a scale between current SIZE of vault and **MAX_VAULT_SIZE** , ask user to choose 
 
-In case of error/success Strings are updated and are shown here
+### Understanding Modify Passowrd
+
+LUKS provide keyslots to add Passphrases which can come from 2 source 
+
+1. A password 
+2. A keyfile 
+
+LUKS internally doesn't discriminate between these 2, but gives user choice to use whatever seems fit 
+Opening this section you see either of these 2 prompts 
+
+![Installed App](./source/enable_keyfile.png "If you are not using keyfile ")
+![Installed App](./source/disable_keyfile.png "If you are using keyfile")
+
+1. **Enable Keyfile** button -> Enable keyfile as default vault opening behaviour for selected vault ( If you don't have keyfile added add it first)
+2. **Disable Keyfile** button -> Disable keyfile as default vault opening behaviour for selected vault ( If you don't have password added add it first)
+
+In either of above cases you will prompt informing you to add password/keyfile, no data will be lost in enabling or disabling them, it's just default way to handle it 
+you can come back and toggle it back to what you want.
+
+**Coming to options**
+
+1. Add Passowrd -> Password can be added by unlocking the vault **using default unlock method** and then entering a new Passowrd 
+2. Add Keyfile -> Keyfile can be added by unlocking the vault **using default unlock method** and then selecting a new keyfile
+3. Change Password -> Password can be changed by unlocking the vault using **any added password to be changed**  and then entering new password
+4. Change Keyfile (Only shown if you have enabled keyfile)-> Keyfile can be changed by unlocking the vault **using another keyfile to be removed** and then selecting a new keyfile
+5. Remove Password -> Password can be REMOVED by unlocking the vault using **password to be removed**, **IF YOU HAVE NO OTHER PASSWORD OR KEYFILE ADDED, YOU LOSE ALL DATA**
+6. Remove Keyfile (Only shown if you have enabled keyfile)-> Keyfile can be REMOVED by unlocking the vault **using keyfile to be removed**,**IF YOU HAVE NO OTHER PASSWORD OR KEYFILE ADDED, YOU LOSE ALL DATA**
+
+## In case of error/success Strings are updated and are shown here
+
 ![Installed App](./source/info_action.png "See the highlight in red sqaure!")
 
 ## What If

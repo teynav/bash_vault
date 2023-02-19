@@ -215,9 +215,9 @@ function createvault {
         is_using_keyfile=$( echo $PASS | sudo -E -S cat "$FOLDER/.filevaults" | grep "$vault_name" | wc -l )
         is_using_keyfile_bak=$is_using_keyfile
         if [[ "$is_using_keyfile" == "0" ]] && [[ "$action_to_take" == "" ]];then 
-            d_input="$(zenity --list --title="$vault_name Passwords" --column="Modify Password" "Add Password" "Add Keyfile" "Change Password" "Remove Password"  --extra-button="Enable Keyfile")"
+            d_input="$(zenity --list --title="$vault_name Passwords" --column="Modify Password" "Add Password" "Add Keyfile" "Change Password" "Remove Password"  --extra-button="Enable Keyfile" --height=300 )"
         elif [[ "$action_to_take" == "" ]];then 
-            d_input="$(zenity --list --title="$vault_name Passwords" --column="Modify Password" "Add Password" "Add Keyfile" "Change Password" "Change Keyfile" "Remove Password" "Remove Keyfile" --extra-button="Disable Keyfile" )"
+            d_input="$(zenity --list --title="$vault_name Passwords" --column="Modify Password" "Add Password" "Add Keyfile" "Change Password" "Change Keyfile" "Remove Password" "Remove Keyfile" --extra-button="Disable Keyfile" --height=300 )"
         fi
         if [[ "$d_input" == "Change Password" ]]||[[ "$d_input" == "Remove Password" ]];then 
             is_using_keyfile=0
