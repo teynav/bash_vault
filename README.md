@@ -34,10 +34,14 @@ There is nothing to configure as of now except
 ![Installed App](./source/sudo.png "Your First Prompt, Asking for Sudo Password")  
 
 2. What should script do next? 
-    - If **VAULT_FOLDER** was not present , create it and then ask to create a new vault with given name and password, when creating vault **don't put .img at end** it will be done automatically
-     ![Installed App](./source/create_vault.png "If your Sudo password is correct, On first run ") 
+    - If **VAULT_FOLDER** was not present , You can choose how to create vault -> Using Password or Keyfile
+     
+     ![Installed App](./source/choose_howto.png "If your Sudo password is correct, On first run ") ![Installed App](./source/create_vault.png "Creating vault with password ") ![Installed App](./source/keyfile.png "Creating vault with keyfile ") 
+     
     - If **VAULT_FOLDER** was present, and no vaults were found ( because you deleted it), if pressed yes, it will give prompt as above
+    
      ![Installed App](./source/no_vault.png "If your Sudo password is correct, And you have no vaults, check vault folder to see if you have vaults?")
+    
     - If **VAULT_FOLDER** was present, and there are more than 0 vaults (vaults end with .img) it asks you to choose action for certain vault, check [Understanding default prompt](#understanding-default-prompt) 
      ![Installed App](./source/default.png "If your Sudo password is correct, And you have no vaults, check vault folder to see if you have vaults?")
 
@@ -60,10 +64,16 @@ There is nothing to configure as of now except
 
 ### Understanding Action 
 
-1. Open -> Asks for password of said vault and mounts it in **VAULT_FOLDER/Random_UUID**, and then xdg-open it 
+1. Open -> 
+  - If Keyfile is disabled in "Modify Passowrd" section, Or if vault was created with password
+      Asks for password of said vault and mounts it in **VAULT_FOLDER/VAULT_NAME.data**, and then xdg-open it 
+  - If Keyfile is enabled in "Modify Passowrd" section, Or if vault was created with keyfile
+      Asks for user to select a keyfile and mount vault in **VAULT_FOLDER/VAULT_NAME.data**, and then xdg-open it 
 2. Close -> If vault is open then close it 
-3. Delete -> Close vault if opened and then proceed to delete it 
-4. Extend -> Show a scale between current SIZE of vault and **MAX_VAULT_SIZE** , ask user to choose 
+3. Rename -> Rename Your vault
+4. Modify Passowrd -> It deserve a section of it's own
+5. Delete -> Close vault if opened and then proceed to delete it 
+6. Extend -> Show a scale between current SIZE of vault and **MAX_VAULT_SIZE** , ask user to choose 
 
 In case of error/success Strings are updated and are shown here
 ![Installed App](./source/info_action.png "See the highlight in red sqaure!")
