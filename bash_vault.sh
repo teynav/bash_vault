@@ -257,6 +257,15 @@ function createvault {
                 return 1
             fi 
             fi
+            if [ -p "$PIPE/$vault_name" ];then 
+                waitonthis "$vault_a"
+                has_closed=$?
+                if [[ $has_closed != "0" ]];then 
+                    Welcome="$vault_a couldn't be closed for $d_input"
+                    DONT_CHANGE_WELCOME="1"
+                    return 1
+                fi
+            fi 
             UUID=$(uuidgen)
             sucess=0
             prompt2="Remove"
@@ -358,7 +367,7 @@ function createvault {
                 if [[ "$new_key_file" != "" ]]; then 
                     if [[ "$is_using_keyfile" == "0" ]];then 
                         if [[ "$d_input" == "Add Keyfile" ]];then 
-                                is_using_keyfile=0
+                            is_using_keyfile=0
                             echo -n "$pass" | cryptsetup luksAddKey "$FOLDER/$vault_name" --new-keyfile "$new_key_file" -d - 
                             sucess=$?
                         else
