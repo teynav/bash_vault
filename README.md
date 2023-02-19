@@ -71,7 +71,7 @@ There is nothing to configure as of now except
       Asks for user to select a keyfile and mount vault in **VAULT_FOLDER/VAULT_NAME.data**, and then xdg-open it 
 2. Close -> If vault is open then close it 
 3. Rename -> Rename Your vault
-4. Modify Passowrd -> [It deserve a section of it's own](#-understanding-modify-password)
+4. Modify Passowrd -> [It deserve a section of it's own](#understanding-modify-password)
 5. Delete -> Close vault if opened and then proceed to delete it 
 6. Extend -> Show a scale between current SIZE of vault and **MAX_VAULT_SIZE** , ask user to choose 
 
