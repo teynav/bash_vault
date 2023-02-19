@@ -75,7 +75,7 @@ There is nothing to configure as of now except
 5. Delete -> Close vault if opened and then proceed to delete it 
 6. Extend -> Show a scale between current SIZE of vault and **MAX_VAULT_SIZE** , ask user to choose 
 
-### Understanding Modify Passowrd
+### Understanding Modify Password
 
 LUKS provide keyslots to add Passphrases which can come from 2 source 
 
