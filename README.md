@@ -87,9 +87,12 @@ Opening this section you see either of these 2 prompts
 
 ![Installed App](./source/enable_keyfile.png "If you are not using keyfile ")
 ![Installed App](./source/disable_keyfile.png "If you are using keyfile")
+![Installed App](./source/disable_auto-open.png "Disable Auto Open if you have it open keyfile")
 
 1. **Enable Keyfile** button -> Enable keyfile as default vault opening behaviour for selected vault ( If you don't have keyfile added add it first)
 2. **Disable Keyfile** button -> Disable keyfile as default vault opening behaviour for selected vault ( If you don't have password added add it first)
+3. **Enable AutoOpen Keyfile** button -> Select Keyfile to be used for AutoOpen of Vault( Vault with AutoOpen if that keyfile is present at that location)
+3. **Disable AutoOpen Keyfile** button -> Disable Keyfile for Auto Opening of Vault.
 
 In either of above cases you will prompt informing you to add password/keyfile, no data will be lost in enabling or disabling them, it's just default way to handle it 
 you can come back and toggle it back to what you want.
