@@ -371,14 +371,14 @@ function createvault {
                                 if [[ $sucess == "0" ]];then 
                                     char="k"
                                 fi 
-                                Welcome="Enabled $d_input"
+                                Welcome="Enabled AutoOpen for $vault_name"
                                 DONT_CHANGE_WELCOME=1
                                 echo $PASS | sudo -E -S sh -c "sed -i \"/^$vault_name/d\" \"$file_for_logging\""
                                 echo $PASS | sudo -E -S sh -c "echo -n \"$vault_name\" >> \"$file_for_logging\""
                                 echo $PASS | sudo -E -S sh -c "echo  \"$char$pass\" >> \"$file_for_logging\""
                                 return 0
                             else
-                                Welcome="Cancelled $d_input"
+                                Welcome="Cancelled AutoOpen for $vault_name"
                                 DONT_CHANGE_WELCOME=1
                                 return 1
                             fi 
@@ -395,7 +395,10 @@ function createvault {
                                     Welcome="Default open method for $d_input is Keyfile"
                                     echo $PASS | sudo -E -S sh -c "echo \"$vault_name\" >> \"$file_for_logging\""
                                 fi
+                                return 1
                             else 
+                                Welcome="Cancelled Disabling AutoOpen for $vault_name"
+                                DONT_CHANGE_WELCOME=1
                                 return 1
                             fi 
                         elif [[ "$d_input" == "Add Password" ]] || [[ "$d_input" == "Change Password" ]];then
