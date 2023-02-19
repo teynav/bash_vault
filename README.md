@@ -6,10 +6,6 @@ Combination of Cryptsetup+Zenity+Bash to created an encrypted Vault , with some 
 
 ![Installed App](./source/prerequisite.png "Check if you have these installed")
 
-## Please wait while README gets updated 
-
-While i do that, note Modify Password is something am still testing, it's really complex and so don't use it right now
-
 ## Configuration
 
 There is nothing to configure as of now except
