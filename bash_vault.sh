@@ -114,7 +114,7 @@ function createvault {
         USING_KEYFILE="1"
         keyfile=$(zenity --file-selection --title="Select a File For Vault")
     elif [[ "$d_input" == "New Vault With Password" ]];then 
-        d_input=$(zenity --title="Vaults" --forms --add-entry="Name Of Vault: " --text="Create your vault" --add-password="Password of Vault" --add-combo="Size(Default: 1024M)" --combo-values="1024M|2048M|5G|10G|20G" --extra-button="Create using Keyfile")
+        d_input=$(zenity --title="Vaults" --forms --add-entry="Name Of Vault: " --text="Create your vault" --add-password="Password of Vault" --add-combo="Size(Default: 1024M)" --combo-values="1024M|2048M|5G|10G|20G")
     else
         Welcome="Please select mode to create new vault in"
         DONT_CHANGE_WELCOME=1
